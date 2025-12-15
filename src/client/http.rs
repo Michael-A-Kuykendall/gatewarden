@@ -120,13 +120,29 @@ impl KeygenClient {
     }
 
     /// Set request timeout.
+    ///
+    /// # Panics
+    /// This method will panic if the client builder fails (extremely unlikely with just timeout).
+    /// If you need fallible construction, use `try_with_timeout` instead.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        // Note: reqwest Client::builder().timeout().build() is infallible in practice,
+        // but we document the panic potential for completeness.
+        self.client = Client::builder()
+            .timeout(timeout)
+            .build()
+            .expect("reqwest client builder with only timeout should never fail");
+        self
+    }
+
+    /// Set request timeout with fallible construction.
+    pub fn try_with_timeout(mut self, timeout: Duration) -> Result<Self, GatewardenError> {
         self.timeout = timeout;
         self.client = Client::builder()
             .timeout(timeout)
             .build()
-            .expect("valid client config");
-        self
+            .map_err(|e| GatewardenError::ConfigError(format!("Failed to build HTTP client: {}", e)))?;
+        Ok(self)
     }
 
     /// Validate a license key.
