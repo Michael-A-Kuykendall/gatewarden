@@ -24,7 +24,11 @@
 //!     offline_grace: std::time::Duration::from_secs(24 * 60 * 60),
 //! };
 //!
-//! let manager = LicenseManager::new(config);
+//! let manager = LicenseManager::new(config)?;
+//! let result = manager.validate_key("license-key")?;
+//! if result.valid {
+//!     println!("License is valid!");
+//! }
 //! ```
 
 #![deny(warnings)]
@@ -32,6 +36,7 @@
 // Core modules
 pub mod config;
 pub mod errors;
+pub mod clock;
 
 // Crypto layer
 pub mod crypto;
@@ -51,9 +56,19 @@ pub mod meter;
 // Policy layer
 pub mod policy;
 
+// Manager (main public API)
+pub mod manager;
+
 // Optional integrations
 pub mod integrations;
 
 // Re-exports for public API
 pub use config::GatewardenConfig;
 pub use errors::GatewardenError;
+pub use clock::{Clock, SystemClock};
+pub use manager::{LicenseManager, ValidationResult};
+pub use policy::access::UsageCaps;
+pub use protocol::models::LicenseState;
+
+#[cfg(any(test, feature = "test-seams"))]
+pub use clock::MockClock;

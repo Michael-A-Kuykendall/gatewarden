@@ -3,3 +3,5 @@
 pub mod digest;
 pub mod signing;
 pub mod verify;
+pub mod freshness;
+pub mod pipeline;
