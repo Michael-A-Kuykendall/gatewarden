@@ -145,8 +145,12 @@ impl KeygenClient {
         Ok(self)
     }
 
-    /// Validate a license key.
-    pub fn validate_key(&self, license_key: &str) -> Result<KeygenResponse, GatewardenError> {
+    /// Validate a license key with entitlement scope.
+    ///
+    /// The `scope_entitlements` parameter specifies which entitlements to assert.
+    /// Keygen will echo these back in the response if the license has them,
+    /// enabling entitlement-based access control.
+    pub fn validate_key(&self, license_key: &str, scope_entitlements: &[&str]) -> Result<KeygenResponse, GatewardenError> {
         let path = format!(
             "/v1/accounts/{}/licenses/actions/validate-key",
             self.account_id
@@ -155,11 +159,23 @@ impl KeygenClient {
         let url = format!("https://{}{}", self.host, path);
 
         // Build request body
-        let body = serde_json::json!({
-            "meta": {
-                "key": license_key
-            }
-        });
+        // Include scope.entitlements to get entitlements echoed back in response
+        let body = if scope_entitlements.is_empty() {
+            serde_json::json!({
+                "meta": {
+                    "key": license_key
+                }
+            })
+        } else {
+            serde_json::json!({
+                "meta": {
+                    "key": license_key,
+                    "scope": {
+                        "entitlements": scope_entitlements
+                    }
+                }
+            })
+        };
         let body_bytes = serde_json::to_vec(&body)
             .map_err(|e| GatewardenError::ProtocolError(format!("Failed to serialize: {}", e)))?;
 

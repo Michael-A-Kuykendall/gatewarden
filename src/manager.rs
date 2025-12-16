@@ -163,8 +163,9 @@ impl LicenseManager {
         license_key: &str,
         key_hash: &str,
     ) -> Result<ValidationResult, GatewardenError> {
-        // Call Keygen
-        let response = self.client.validate_key(license_key)?;
+        // Call Keygen with required entitlements in scope
+        // This ensures Keygen echoes back the entitlements in the response
+        let response = self.client.validate_key(license_key, self.config.required_entitlements)?;
 
         // Verify signature, digest, and freshness
         verify_response(&response, self.config.public_key_hex, self.clock.as_ref())?;
