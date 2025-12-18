@@ -150,18 +150,23 @@ impl CacheRecord {
 mod tests {
     use super::*;
     use crate::clock::MockClock;
-    use chrono::TimeZone;
-    use ed25519_dalek::{SigningKey, Signer};
-    use base64::{engine::general_purpose::STANDARD, Engine};
     use crate::crypto::digest::format_digest_header;
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use chrono::TimeZone;
+    use ed25519_dalek::{Signer, SigningKey};
 
-    // Test keypair (DO NOT USE IN PRODUCTION)
-    const TEST_PRIVATE_KEY_HEX: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
-    const TEST_PUBLIC_KEY_HEX: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+    // Test signing seed + verifying key (DO NOT USE IN PRODUCTION)
+    // This is a well-known Ed25519 test vector seed.
+    const TEST_SIGNING_SEED_BYTES: [u8; 32] = [
+        0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c,
+        0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae,
+        0x7f, 0x60,
+    ];
+    const TEST_VERIFY_KEY_HEX: &str =
+        "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
 
     fn get_test_signing_key() -> SigningKey {
-        let bytes = hex::decode(TEST_PRIVATE_KEY_HEX).unwrap();
-        SigningKey::from_bytes(&bytes.try_into().unwrap())
+        SigningKey::from_bytes(&TEST_SIGNING_SEED_BYTES)
     }
 
     fn sign_test_data(signing_string: &str) -> String {
@@ -180,10 +185,7 @@ mod tests {
         let digest = format_digest_header(body.as_bytes());
         let signing_string = build_signing_string("post", path, host, date, Some(&digest));
         let signature_b64 = sign_test_data(&signing_string);
-        let signature_header = format!(
-            r#"algorithm="ed25519", signature="{}""#,
-            signature_b64
-        );
+        let signature_header = format!(r#"algorithm="ed25519", signature="{}""#, signature_b64);
 
         CacheRecord::new(
             date.to_string(),
@@ -231,7 +233,7 @@ mod tests {
 
         // Verify immediately - should pass
         let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
+            TEST_VERIFY_KEY_HEX,
             Duration::from_secs(86400), // 24 hours grace
             &clock,
         );
@@ -253,7 +255,7 @@ mod tests {
         // Advance 23 hours (within 24-hour grace)
         let later_clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 16, 11, 0, 0).unwrap());
         let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
+            TEST_VERIFY_KEY_HEX,
             Duration::from_secs(86400), // 24 hours grace
             &later_clock,
         );
@@ -275,7 +277,7 @@ mod tests {
         // Advance 25 hours (beyond 24-hour grace)
         let later_clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 16, 13, 0, 0).unwrap());
         let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
+            TEST_VERIFY_KEY_HEX,
             Duration::from_secs(86400), // 24 hours grace
             &later_clock,
         );
@@ -297,11 +299,7 @@ mod tests {
         // Tamper with body
         record.body = r#"{"data":{"type":"licenses","attributes":{"valid":false}}}"#.to_string();
 
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &clock);
         assert!(matches!(result, Err(GatewardenError::CacheTampered)));
     }
 
@@ -320,11 +318,7 @@ mod tests {
         // Tamper with date
         record.date = "Thu, 16 Jan 2025 12:00:00 GMT".to_string();
 
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &clock);
         assert!(matches!(result, Err(GatewardenError::CacheTampered)));
     }
 
@@ -343,11 +337,7 @@ mod tests {
         // Tamper with signature by using a completely different base64 value
         record.signature = r#"algorithm="ed25519", signature="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==""#.to_string();
 
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &clock);
         assert!(matches!(result, Err(GatewardenError::CacheTampered)));
     }
 
@@ -365,11 +355,7 @@ mod tests {
 
         // Verify with a clock that's BEFORE the cached_at time
         let past_clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 15, 11, 0, 0).unwrap());
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &past_clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &past_clock);
         assert!(matches!(result, Err(GatewardenError::CacheTampered)));
     }
 
@@ -396,11 +382,7 @@ mod tests {
             &clock,
         );
 
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &clock);
         assert!(result.is_ok());
     }
 
@@ -419,7 +401,7 @@ mod tests {
         // Exactly at grace boundary (should pass)
         let boundary_clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 16, 12, 0, 0).unwrap());
         let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
+            TEST_VERIFY_KEY_HEX,
             Duration::from_secs(86400), // 24 hours
             &boundary_clock,
         );
@@ -427,11 +409,7 @@ mod tests {
 
         // One second over (should fail)
         let over_clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 16, 12, 0, 1).unwrap());
-        let result = record.verify(
-            TEST_PUBLIC_KEY_HEX,
-            Duration::from_secs(86400),
-            &over_clock,
-        );
+        let result = record.verify(TEST_VERIFY_KEY_HEX, Duration::from_secs(86400), &over_clock);
         assert!(matches!(result, Err(GatewardenError::CacheExpired)));
     }
 }

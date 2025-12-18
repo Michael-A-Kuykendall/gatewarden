@@ -6,8 +6,8 @@
 //! 3. Verify signature
 //! 4. Check freshness (not replayed, not future-dated)
 
-use crate::clock::Clock;
 use crate::client::http::KeygenResponse;
+use crate::clock::Clock;
 use crate::crypto::{
     digest::verify_digest,
     freshness::check_date_freshness,
@@ -131,13 +131,18 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use ed25519_dalek::{Signer, SigningKey};
 
-    // Test keypair (DO NOT USE IN PRODUCTION)
-    const TEST_PRIVATE_KEY_HEX: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
-    const TEST_PUBLIC_KEY_HEX: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+    // Test signing seed + verifying key (DO NOT USE IN PRODUCTION)
+    // This is a well-known Ed25519 test vector seed.
+    const TEST_SIGNING_SEED_BYTES: [u8; 32] = [
+        0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c,
+        0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae,
+        0x7f, 0x60,
+    ];
+    const TEST_VERIFY_KEY_HEX: &str =
+        "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
 
     fn get_test_signing_key() -> SigningKey {
-        let bytes = hex::decode(TEST_PRIVATE_KEY_HEX).unwrap();
-        SigningKey::from_bytes(&bytes.try_into().unwrap())
+        SigningKey::from_bytes(&TEST_SIGNING_SEED_BYTES)
     }
 
     fn sign_test_data(signing_string: &str) -> String {
@@ -146,12 +151,7 @@ mod tests {
         STANDARD.encode(signature.to_bytes())
     }
 
-    fn create_test_response(
-        body: &str,
-        date: &str,
-        host: &str,
-        path: &str,
-    ) -> KeygenResponse {
+    fn create_test_response(body: &str, date: &str, host: &str, path: &str) -> KeygenResponse {
         let body_bytes = body.as_bytes().to_vec();
         let digest = format_digest_header(&body_bytes);
         let signing_string = build_signing_string("post", path, host, date, Some(&digest));
@@ -179,7 +179,7 @@ mod tests {
             "/v1/accounts/test/licenses/actions/validate-key",
         );
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(result.is_ok());
     }
 
@@ -194,7 +194,7 @@ mod tests {
         );
         response.signature = None;
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::SignatureMissing)));
     }
 
@@ -209,7 +209,7 @@ mod tests {
         );
         response.date = None;
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::SignatureMissing)));
     }
 
@@ -225,7 +225,7 @@ mod tests {
         // Tamper with body
         response.body = b"tampered body".to_vec();
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::DigestMismatch)));
     }
 
@@ -242,7 +242,7 @@ mod tests {
         let wrong_sig = STANDARD.encode([0u8; 64]);
         response.signature = Some(format!(r#"algorithm="ed25519", signature="{}""#, wrong_sig));
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::SignatureInvalid)));
     }
 
@@ -256,8 +256,11 @@ mod tests {
             "/v1/accounts/test/licenses/actions/validate-key",
         );
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
-        assert!(matches!(result, Err(GatewardenError::ResponseTooOld { .. })));
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
+        assert!(matches!(
+            result,
+            Err(GatewardenError::ResponseTooOld { .. })
+        ));
     }
 
     #[test]
@@ -270,7 +273,7 @@ mod tests {
             "/v1/accounts/test/licenses/actions/validate-key",
         );
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::ResponseFromFuture)));
     }
 
@@ -283,7 +286,7 @@ mod tests {
             "/v1/accounts/test/licenses/actions/validate-key",
         );
 
-        let result = verify_response_signature_only(&response, TEST_PUBLIC_KEY_HEX);
+        let result = verify_response_signature_only(&response, TEST_VERIFY_KEY_HEX);
         assert!(result.is_ok());
     }
 
@@ -310,7 +313,7 @@ mod tests {
             host: host.to_string(),
         };
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(result.is_ok());
     }
 
@@ -327,7 +330,7 @@ mod tests {
             host: "api.keygen.sh".to_string(),
         };
 
-        let result = verify_response(&response, TEST_PUBLIC_KEY_HEX, &clock);
+        let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::SignatureMissing)));
     }
 }

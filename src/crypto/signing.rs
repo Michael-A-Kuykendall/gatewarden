@@ -58,7 +58,8 @@ mod tests {
             Some("sha-256=827Op2un8OT9KJuN1siRs5h6mxjrUh4LJag66dQjnIM="),
         );
 
-        let expected = "(request-target): post /v1/accounts/test-account/licenses/actions/validate-key\n\
+        let expected =
+            "(request-target): post /v1/accounts/test-account/licenses/actions/validate-key\n\
                         host: api.keygen.sh\n\
                         date: Wed, 09 Jun 2021 16:08:15 GMT\n\
                         digest: sha-256=827Op2un8OT9KJuN1siRs5h6mxjrUh4LJag66dQjnIM=";

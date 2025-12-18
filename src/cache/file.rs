@@ -49,9 +49,15 @@ impl FileCache {
     /// Save a cache record atomically.
     ///
     /// Uses temp file + rename for atomic write.
-    pub fn save(&self, license_key_hash: &str, record: &CacheRecord) -> Result<(), GatewardenError> {
+    pub fn save(
+        &self,
+        license_key_hash: &str,
+        record: &CacheRecord,
+    ) -> Result<(), GatewardenError> {
         let target_path = self.license_path(license_key_hash);
-        let temp_path = self.cache_dir.join(format!("{}.tmp", license_key_hash));
+        // Avoid using the full hash in filenames.
+        let safe_name = &license_key_hash[..16.min(license_key_hash.len())];
+        let temp_path = self.cache_dir.join(format!("{}.tmp", safe_name));
 
         let json = record.to_json()?;
 
@@ -59,7 +65,20 @@ impl FileCache {
         fs::write(&temp_path, &json)
             .map_err(|e| GatewardenError::CacheIO(format!("Failed to write temp file: {}", e)))?;
 
-        // Atomic rename
+        // Best-effort restrict permissions on Unix-like systems.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(&temp_path, perms);
+        }
+
+        // Atomic rename on Unix; on Windows rename-over-existing fails.
+        if target_path.exists() {
+            fs::remove_file(&target_path).map_err(|e| {
+                GatewardenError::CacheIO(format!("Failed to remove old cache file: {}", e))
+            })?;
+        }
         fs::rename(&temp_path, &target_path)
             .map_err(|e| GatewardenError::CacheIO(format!("Failed to rename cache file: {}", e)))?;
 

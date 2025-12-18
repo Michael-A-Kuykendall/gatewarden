@@ -34,9 +34,9 @@
 #![deny(warnings)]
 
 // Core modules
+pub mod clock;
 pub mod config;
 pub mod errors;
-pub mod clock;
 
 // Crypto layer
 pub mod crypto;
@@ -63,9 +63,9 @@ pub mod manager;
 pub mod integrations;
 
 // Re-exports for public API
+pub use clock::{Clock, SystemClock};
 pub use config::GatewardenConfig;
 pub use errors::GatewardenError;
-pub use clock::{Clock, SystemClock};
 pub use manager::{LicenseManager, ValidationResult};
 pub use policy::access::UsageCaps;
 pub use protocol::models::LicenseState;

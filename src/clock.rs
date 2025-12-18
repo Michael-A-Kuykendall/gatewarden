@@ -1,5 +1,7 @@
 //! Deterministic clock abstraction for testable time-dependent logic.
 
+#[cfg(any(test, feature = "test-seams"))]
+use crate::GatewardenError;
 use chrono::{DateTime, Utc};
 
 /// Clock trait for deterministic time in tests.
@@ -33,17 +35,19 @@ impl MockClock {
     }
 
     /// Create a mock clock from an RFC 3339 string.
-    pub fn from_rfc3339(s: &str) -> Self {
-        Self {
-            now: DateTime::parse_from_rfc3339(s)
-                .expect("valid RFC 3339")
-                .with_timezone(&Utc),
-        }
+    pub fn from_rfc3339(s: &str) -> Result<Self, GatewardenError> {
+        let parsed = DateTime::parse_from_rfc3339(s).map_err(|e| {
+            GatewardenError::ProtocolError(format!("invalid RFC 3339 timestamp: {e}"))
+        })?;
+
+        Ok(Self {
+            now: parsed.with_timezone(&Utc),
+        })
     }
 
     /// Advance the clock by a duration.
     pub fn advance(&mut self, duration: chrono::Duration) {
-        self.now = self.now + duration;
+        self.now += duration;
     }
 }
 
@@ -69,14 +73,14 @@ mod tests {
 
     #[test]
     fn mock_clock_is_deterministic() {
-        let clock = MockClock::from_rfc3339("2025-01-15T12:00:00Z");
+        let clock = MockClock::from_rfc3339("2025-01-15T12:00:00Z").unwrap();
         assert_eq!(clock.now_utc().to_rfc3339(), "2025-01-15T12:00:00+00:00");
         assert_eq!(clock.now_utc().to_rfc3339(), "2025-01-15T12:00:00+00:00");
     }
 
     #[test]
     fn mock_clock_advances() {
-        let mut clock = MockClock::from_rfc3339("2025-01-15T12:00:00Z");
+        let mut clock = MockClock::from_rfc3339("2025-01-15T12:00:00Z").unwrap();
         clock.advance(chrono::Duration::hours(1));
         assert_eq!(clock.now_utc().to_rfc3339(), "2025-01-15T13:00:00+00:00");
     }

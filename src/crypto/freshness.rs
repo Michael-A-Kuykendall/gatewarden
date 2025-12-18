@@ -16,7 +16,9 @@ pub const MAX_FUTURE_TOLERANCE_SECONDS: i64 = 60;
 pub fn parse_rfc2822_date(date_str: &str) -> Result<DateTime<Utc>, GatewardenError> {
     DateTime::parse_from_rfc2822(date_str)
         .map(|dt| dt.with_timezone(&Utc))
-        .map_err(|e| GatewardenError::ProtocolError(format!("Invalid date header: {} ({})", date_str, e)))
+        .map_err(|e| {
+            GatewardenError::ProtocolError(format!("Invalid date header: {} ({})", date_str, e))
+        })
 }
 
 /// Check that a response is fresh (not a replay attack).
@@ -77,9 +79,9 @@ mod tests {
 
     #[test]
     fn test_freshness_valid() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:10:00Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:10:00Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is ~105 seconds old, within 5 minute window
         let result = check_freshness(response_date, &clock);
         assert!(result.is_ok());
@@ -87,19 +89,22 @@ mod tests {
 
     #[test]
     fn test_freshness_stale() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:20:00Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:20:00Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is ~12 minutes old, exceeds 5 minute window
         let result = check_freshness(response_date, &clock);
-        assert!(matches!(result, Err(GatewardenError::ResponseTooOld { .. })));
+        assert!(matches!(
+            result,
+            Err(GatewardenError::ResponseTooOld { .. })
+        ));
     }
 
     #[test]
     fn test_freshness_exactly_5_minutes() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:13:15Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:13:15Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is exactly 5 minutes old (300 seconds) - should still be valid
         let result = check_freshness(response_date, &clock);
         assert!(result.is_ok());
@@ -107,19 +112,22 @@ mod tests {
 
     #[test]
     fn test_freshness_just_over_5_minutes() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:13:16Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:13:16Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is 301 seconds old - should be rejected
         let result = check_freshness(response_date, &clock);
-        assert!(matches!(result, Err(GatewardenError::ResponseTooOld { .. })));
+        assert!(matches!(
+            result,
+            Err(GatewardenError::ResponseTooOld { .. })
+        ));
     }
 
     #[test]
     fn test_freshness_future_within_tolerance() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:07:30Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:07:30Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is 45 seconds in the future - within 60s tolerance
         let result = check_freshness(response_date, &clock);
         assert!(result.is_ok());
@@ -127,9 +135,9 @@ mod tests {
 
     #[test]
     fn test_freshness_future_exceeds_tolerance() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:06:00Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:06:00Z").unwrap();
         let response_date = parse_rfc2822_date("Wed, 09 Jun 2021 16:08:15 GMT").unwrap();
-        
+
         // Response is 135 seconds in the future - exceeds 60s tolerance
         let result = check_freshness(response_date, &clock);
         assert!(matches!(result, Err(GatewardenError::ResponseFromFuture)));
@@ -137,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_check_date_freshness_combined() {
-        let clock = MockClock::from_rfc3339("2021-06-09T16:10:00Z");
+        let clock = MockClock::from_rfc3339("2021-06-09T16:10:00Z").unwrap();
         let result = check_date_freshness("Wed, 09 Jun 2021 16:08:15 GMT", &clock);
         assert!(result.is_ok());
     }
