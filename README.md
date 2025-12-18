@@ -9,6 +9,8 @@
     <a href="https://github.com/mcp-sh/gatewarden/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
 </p>
 
+<p align="center"><em>Yes, the logo is a bit much for a license validation library. We're aware.</em></p>
+
 **Hardened [Keygen.sh](https://keygen.sh) license validation for Rust.**
 
 Gatewarden validates licenses via Keygen's `validate-key` API and **cryptographically verifies** every response using Ed25519 signatures—preventing MITM attacks, spoofed responses, and replay attacks. It also provides an authenticated on-disk cache for offline grace periods.
