@@ -5,8 +5,8 @@
 <p align="center">
     <a href="https://crates.io/crates/gatewarden"><img src="https://img.shields.io/crates/v/gatewarden.svg" alt="Crates.io"></a>
     <a href="https://docs.rs/gatewarden"><img src="https://docs.rs/gatewarden/badge.svg" alt="Docs.rs"></a>
-    <a href="https://github.com/mcp-sh/gatewarden/actions"><img src="https://github.com/mcp-sh/gatewarden/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://github.com/mcp-sh/gatewarden/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
+    <a href="https://github.com/Michael-A-Kuykendall/gatewarden/actions"><img src="https://github.com/Michael-A-Kuykendall/gatewarden/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/Michael-A-Kuykendall/gatewarden/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
 </p>
 
 <p align="center"><em>Yes, the logo is a bit much for a license validation library. We're aware.</em></p>
