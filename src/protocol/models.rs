@@ -7,17 +7,23 @@ use serde::{Deserialize, Serialize};
 /// Raw Keygen validate-key response.
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeygenValidateResponse {
+    /// Validation metadata.
     pub meta: KeygenValidateMeta,
+    /// License data (if returned).
     pub data: Option<KeygenLicenseData>,
 }
 
 /// Metadata from validation response.
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeygenValidateMeta {
+    /// Whether the license is valid.
     pub valid: bool,
+    /// Validation result code from Keygen.
     pub code: String,
+    /// Optional detail message.
     #[serde(default)]
     pub detail: Option<String>,
+    /// Scoped entitlements (if requested).
     #[serde(default)]
     pub scope: Option<KeygenScopeMeta>,
 }
@@ -25,6 +31,7 @@ pub struct KeygenValidateMeta {
 /// Scoped entitlements from validation.
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeygenScopeMeta {
+    /// List of entitlement codes present on this license.
     #[serde(default)]
     pub entitlements: Vec<String>,
 }
@@ -33,9 +40,12 @@ pub struct KeygenScopeMeta {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeygenLicenseData {
+    /// License ID.
     pub id: String,
+    /// Resource type (always "licenses").
     #[serde(rename = "type")]
     pub data_type: String,
+    /// License attributes.
     pub attributes: KeygenLicenseAttributes,
 }
 
@@ -43,12 +53,16 @@ pub struct KeygenLicenseData {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeygenLicenseAttributes {
+    /// Optional license name.
     #[serde(default)]
     pub name: Option<String>,
+    /// Expiry date as ISO 8601 string.
     #[serde(default)]
     pub expiry: Option<String>,
+    /// Maximum uses allowed.
     #[serde(default)]
     pub max_uses: Option<u64>,
+    /// Current use count.
     #[serde(default)]
     pub uses: Option<u64>,
 }

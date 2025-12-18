@@ -2,6 +2,13 @@
     <img src="assets/gatewarden-logo.png" alt="Gatewarden" width="350"/>
 </p>
 
+<p align="center">
+    <a href="https://crates.io/crates/gatewarden"><img src="https://img.shields.io/crates/v/gatewarden.svg" alt="Crates.io"></a>
+    <a href="https://docs.rs/gatewarden"><img src="https://docs.rs/gatewarden/badge.svg" alt="Docs.rs"></a>
+    <a href="https://github.com/mcp-sh/gatewarden/actions"><img src="https://github.com/mcp-sh/gatewarden/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/mcp-sh/gatewarden/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
+</p>
+
 Hardened Keygen.sh license validation for Rust.
 
 Gatewarden validates licenses using Keygen’s `validate-key` API and **cryptographically verifies** Keygen responses (Ed25519 signatures + optional SHA-256 digest) to prevent MITM/spoofed responses. It also supports an authenticated on-disk cache for offline grace.
@@ -70,7 +77,6 @@ See CONTRIBUTING.md.
 
 See SECURITY.md.
 
-## Publishing
+## License
 
-This repository is OSS-ready, but the crate is currently configured with `publish = false` in `Cargo.toml`.
-When you're ready to publish to crates.io, flip that to `true` (or remove the key) and run your normal release flow.
+MIT

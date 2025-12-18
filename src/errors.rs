@@ -23,7 +23,10 @@ pub enum GatewardenError {
 
     /// Response is older than allowed freshness window (replay attack).
     #[error("Response too old ({age_seconds}s), possible replay attack")]
-    ResponseTooOld { age_seconds: i64 },
+    ResponseTooOld {
+        /// Age of the response in seconds.
+        age_seconds: i64,
+    },
 
     /// Response date is in the future (clock tampering).
     #[error("Response date is in the future, possible clock tampering")]
@@ -59,7 +62,10 @@ pub enum GatewardenError {
 
     /// Required entitlement is missing.
     #[error("Required entitlement missing: {code}")]
-    EntitlementMissing { code: String },
+    EntitlementMissing {
+        /// The entitlement code that was required but missing.
+        code: String,
+    },
 
     /// Usage limit exceeded.
     #[error("Usage limit exceeded")]
