@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="assets/gatewarden-logo.png" alt="Gatewarden" width="350"/>
+    <img src="https://raw.githubusercontent.com/Michael-A-Kuykendall/gatewarden/main/assets/gatewarden-logo.png" alt="Gatewarden" width="350"/>
 </p>
 
 <p align="center">
