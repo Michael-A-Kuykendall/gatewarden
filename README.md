@@ -11,7 +11,7 @@
 
 <p align="center"><em>Yes, the logo is a bit much for a license validation library. We're aware.</em></p>
 
-**Hardened [Keygen.sh](https://keygen.sh) license validation for Rust.**
+<h2 align="center">Hardened <a href="https://keygen.sh">Keygen.sh</a> license validation for Rust.</h2>
 
 Gatewarden validates licenses via Keygen's `validate-key` API and **cryptographically verifies** every response using Ed25519 signatures—preventing MITM attacks, spoofed responses, and replay attacks. It also provides an authenticated on-disk cache for offline grace periods.
 
