@@ -79,7 +79,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: 🎯 Test publish (dry run)
-      run: cargo publish --dry-run
+      run: cargo publish --dry-run --allow-dirty
 
     - name: 📋 Summary
       if: success()
