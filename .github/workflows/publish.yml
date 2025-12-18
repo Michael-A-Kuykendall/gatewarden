@@ -41,7 +41,7 @@ jobs:
         echo "✅ Versions match"
 
     - name: 🚀 Publish to crates.io
-      run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+      run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
 
     - name: 🎉 Create GitHub Release
       uses: softprops/action-gh-release@v1
