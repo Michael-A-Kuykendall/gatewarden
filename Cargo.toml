@@ -3,8 +3,13 @@ name = "gatewarden"
 version = "0.1.0"
 edition = "2021"
 description = "Hardened Keygen.sh license validation infrastructure"
-license = "Proprietary"
+license = "MIT"
 publish = false
+readme = "README.md"
+repository = "https://github.com/Michael-A-Kuykendall/gatewarden"
+homepage = "https://github.com/Michael-A-Kuykendall/gatewarden"
+keywords = ["license", "keygen", "security", "ed25519", "offline"]
+categories = ["authentication", "cryptography", "web-programming"]
 
 [dependencies]
 # Crypto

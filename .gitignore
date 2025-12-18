@@ -1,1 +1,10 @@
 /target
+
+# Local env / secrets
+.env
+.env.*
+.secrets
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

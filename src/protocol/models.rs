@@ -58,29 +58,31 @@ pub struct KeygenLicenseAttributes {
 pub struct LicenseState {
     /// Whether the license is valid.
     pub valid: bool,
-    
+
     /// Entitlement codes present on this license.
     pub entitlements: Vec<String>,
-    
+
     /// License expiry time (if set).
     pub expires_at: Option<DateTime<Utc>>,
-    
+
     /// Maximum uses allowed (if set).
     pub max_uses: Option<u64>,
-    
+
     /// Current use count.
     pub current_uses: Option<u64>,
-    
+
     /// Response code from Keygen.
     pub code: String,
-    
+
     /// Optional detail message.
     pub detail: Option<String>,
 }
 
 impl LicenseState {
     /// Extract normalized license state from raw Keygen response.
-    pub fn from_keygen_response(response: &KeygenValidateResponse) -> Result<Self, GatewardenError> {
+    pub fn from_keygen_response(
+        response: &KeygenValidateResponse,
+    ) -> Result<Self, GatewardenError> {
         // Extract entitlements from scope
         let entitlements = response
             .meta
@@ -98,15 +100,9 @@ impl LicenseState {
             .map(|dt| dt.with_timezone(&Utc));
 
         // Extract usage info
-        let max_uses = response
-            .data
-            .as_ref()
-            .and_then(|d| d.attributes.max_uses);
-        
-        let current_uses = response
-            .data
-            .as_ref()
-            .and_then(|d| d.attributes.uses);
+        let max_uses = response.data.as_ref().and_then(|d| d.attributes.max_uses);
+
+        let current_uses = response.data.as_ref().and_then(|d| d.attributes.uses);
 
         Ok(Self {
             valid: response.meta.valid,
@@ -122,8 +118,9 @@ impl LicenseState {
 
 /// Parse raw JSON body into Keygen response.
 pub fn parse_keygen_response(body: &[u8]) -> Result<KeygenValidateResponse, GatewardenError> {
-    serde_json::from_slice(body)
-        .map_err(|e| GatewardenError::ProtocolError(format!("Failed to parse Keygen response: {}", e)))
+    serde_json::from_slice(body).map_err(|e| {
+        GatewardenError::ProtocolError(format!("Failed to parse Keygen response: {}", e))
+    })
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
+use std::sync::RwLock;
 
 /// Parsed signature header components.
 #[derive(Debug, Clone)]
@@ -38,7 +39,9 @@ pub fn parse_signature_header(header: &str) -> Result<ParsedSignatureHeader, Gat
 
     let algorithm = parts
         .get("algorithm")
-        .ok_or_else(|| GatewardenError::ProtocolError("Missing algorithm in signature header".to_string()))?
+        .ok_or_else(|| {
+            GatewardenError::ProtocolError("Missing algorithm in signature header".to_string())
+        })?
         .clone();
 
     if algorithm != "ed25519" {
@@ -50,7 +53,9 @@ pub fn parse_signature_header(header: &str) -> Result<ParsedSignatureHeader, Gat
 
     let signature = parts
         .get("signature")
-        .ok_or_else(|| GatewardenError::ProtocolError("Missing signature in signature header".to_string()))?
+        .ok_or_else(|| {
+            GatewardenError::ProtocolError("Missing signature in signature header".to_string())
+        })?
         .clone();
 
     let headers = parts
@@ -67,16 +72,18 @@ pub fn parse_signature_header(header: &str) -> Result<ParsedSignatureHeader, Gat
 }
 
 /// Cache for decoded verifying keys.
-static KEY_CACHE: OnceCell<HashMap<String, VerifyingKey>> = OnceCell::new();
+static KEY_CACHE: OnceCell<RwLock<HashMap<String, VerifyingKey>>> = OnceCell::new();
 
 /// Decode a hex-encoded Ed25519 public key.
 ///
 /// The key is cached after first decode for performance.
 pub fn decode_public_key(hex_key: &str) -> Result<VerifyingKey, GatewardenError> {
     // Check cache first
-    let cache = KEY_CACHE.get_or_init(HashMap::new);
-    if let Some(key) = cache.get(hex_key) {
-        return Ok(*key);
+    let cache = KEY_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+    if let Ok(guard) = cache.read() {
+        if let Some(key) = guard.get(hex_key) {
+            return Ok(*key);
+        }
     }
 
     // Decode from hex
@@ -89,6 +96,11 @@ pub fn decode_public_key(hex_key: &str) -> Result<VerifyingKey, GatewardenError>
 
     let verifying_key = VerifyingKey::from_bytes(&key_array)
         .map_err(|e| GatewardenError::ConfigError(format!("Invalid Ed25519 public key: {}", e)))?;
+
+    // Best-effort insert into cache. If locking fails, still return the decoded key.
+    if let Ok(mut guard) = cache.write() {
+        guard.insert(hex_key.to_string(), verifying_key);
+    }
 
     Ok(verifying_key)
 }
@@ -128,7 +140,10 @@ mod tests {
         assert_eq!(parsed.key_id, Some("test-id".to_string()));
         assert_eq!(parsed.algorithm, "ed25519");
         assert_eq!(parsed.signature, "dGVzdA==");
-        assert_eq!(parsed.headers, vec!["(request-target)", "host", "date", "digest"]);
+        assert_eq!(
+            parsed.headers,
+            vec!["(request-target)", "host", "date", "digest"]
+        );
     }
 
     #[test]

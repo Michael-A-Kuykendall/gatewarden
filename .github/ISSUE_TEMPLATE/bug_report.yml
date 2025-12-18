@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a bug in Gatewarden
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug.
+        Please do not include license keys or other secrets.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you observe?
+      placeholder: "e.g. License validation fails when ..."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error output
+      description: Redact anything sensitive. Never include license keys.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: gatewarden-version
+    attributes:
+      label: Gatewarden version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: false
+  - type: input
+    id: rust-version
+    attributes:
+      label: Rust version
+      placeholder: "e.g. stable 1.7x.x"
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "e.g. Windows 11, Ubuntu 22.04, macOS 14"
+    validations:
+      required: false

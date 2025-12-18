@@ -98,7 +98,9 @@ impl KeygenClient {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .map_err(|e| GatewardenError::KeygenTransport(format!("Failed to create client: {}", e)))?;
+            .map_err(|e| {
+                GatewardenError::KeygenTransport(format!("Failed to create client: {}", e))
+            })?;
 
         let user_agent = build_user_agent(config);
 
@@ -120,28 +122,22 @@ impl KeygenClient {
     }
 
     /// Set request timeout.
-    ///
-    /// # Panics
-    /// This method will panic if the client builder fails (extremely unlikely with just timeout).
-    /// If you need fallible construction, use `try_with_timeout` instead.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
-        // Note: reqwest Client::builder().timeout().build() is infallible in practice,
-        // but we document the panic potential for completeness.
-        self.client = Client::builder()
-            .timeout(timeout)
-            .build()
-            .expect("reqwest client builder with only timeout should never fail");
+
+        // Best-effort rebuild; use `try_with_timeout` if you need fallible construction.
+        if let Ok(client) = Client::builder().timeout(timeout).build() {
+            self.client = client;
+        }
         self
     }
 
     /// Set request timeout with fallible construction.
     pub fn try_with_timeout(mut self, timeout: Duration) -> Result<Self, GatewardenError> {
         self.timeout = timeout;
-        self.client = Client::builder()
-            .timeout(timeout)
-            .build()
-            .map_err(|e| GatewardenError::ConfigError(format!("Failed to build HTTP client: {}", e)))?;
+        self.client = Client::builder().timeout(timeout).build().map_err(|e| {
+            GatewardenError::ConfigError(format!("Failed to build HTTP client: {}", e))
+        })?;
         Ok(self)
     }
 
@@ -150,7 +146,11 @@ impl KeygenClient {
     /// The `scope_entitlements` parameter specifies which entitlements to assert.
     /// Keygen will echo these back in the response if the license has them,
     /// enabling entitlement-based access control.
-    pub fn validate_key(&self, license_key: &str, scope_entitlements: &[&str]) -> Result<KeygenResponse, GatewardenError> {
+    pub fn validate_key(
+        &self,
+        license_key: &str,
+        scope_entitlements: &[&str],
+    ) -> Result<KeygenResponse, GatewardenError> {
         let path = format!(
             "/v1/accounts/{}/licenses/actions/validate-key",
             self.account_id
@@ -259,7 +259,10 @@ mod tests {
         let ua = build_user_agent(&config);
         let gw_version = env!("CARGO_PKG_VERSION");
 
-        assert_eq!(ua, format!("myproduct/gatewarden-{} myapp/2.0.0", gw_version));
+        assert_eq!(
+            ua,
+            format!("myproduct/gatewarden-{} myapp/2.0.0", gw_version)
+        );
     }
 
     #[test]

@@ -92,8 +92,44 @@ once_cell = "1"
 - Do NOT use `async-trait` - use `impl Future` where needed
 - Do NOT add features without explicit approval
 
+## Keygen Account & Testing
+
+### Account Details (from consumer .env files)
+- **Account ID**: `6270bf9c-23ad-4483-9296-3a6d9178514a`
+- **Product ID**: `d2e0b870-b015-4490-8570-fa32edf17fbc`
+- **Public Key**: Ed25519 verify key (in consumer config, NOT hardcoded here)
+
+### Test License Types
+| Type | Purpose | Expected Validation Result |
+|------|---------|---------------------------|
+| VALID | Active license with required entitlements | `Ok(LicenseValidation)` |
+| EXPIRED | License past expiration date | `Err(GatewardenError::LicenseExpired)` |
+| SUSPENDED | License manually suspended by admin | `Err(GatewardenError::LicenseSuspended)` |
+| NO_ENTITLEMENT | Valid license missing required entitlement | `Err(GatewardenError::MissingEntitlement)` |
+
+### Entitlements Scope (CRITICAL)
+Gatewarden must include `scope.entitlements` in validate-key requests for Keygen to echo entitlements back:
+```json
+{
+  "meta": {
+    "scope": {
+      "entitlements": ["VISION_ANALYSIS"]
+    }
+  }
+}
+```
+Without this, Keygen returns empty entitlements even if the license has them.
+
+### Local Testing Workflow
+See `LOCAL_TESTING.md` for detailed instructions on:
+- Loading test credentials from `.env`
+- Running integration tests against real Keygen API
+- Testing offline grace period behavior
+- Verifying signature validation
+
 ## Reference Documents
 - Architecture prompt: `shimmy-workspace/docs/GATEWARDEN_ARCHITECTURE_PROMPT.md`
 - Implementation plan: `IMPLEMENTATION_PLAN.md`
+- Local testing guide: `LOCAL_TESTING.md`
 - Keygen signature docs: https://keygen.sh/docs/api/signatures/
 - Keygen security docs: https://keygen.sh/docs/api/security/

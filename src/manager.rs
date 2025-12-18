@@ -128,7 +128,9 @@ impl LicenseManager {
         let key_hash = hash_license_key(license_key);
 
         // Load from cache
-        let record = self.cache.load(&key_hash)?
+        let record = self
+            .cache
+            .load(&key_hash)?
             .ok_or(GatewardenError::InvalidLicense)?;
 
         // Verify cache is authentic and within grace
@@ -165,7 +167,9 @@ impl LicenseManager {
     ) -> Result<ValidationResult, GatewardenError> {
         // Call Keygen with required entitlements in scope
         // This ensures Keygen echoes back the entitlements in the response
-        let response = self.client.validate_key(license_key, self.config.required_entitlements)?;
+        let response = self
+            .client
+            .validate_key(license_key, self.config.required_entitlements)?;
 
         // Verify signature, digest, and freshness
         verify_response(&response, self.config.public_key_hex, self.clock.as_ref())?;
@@ -223,8 +227,7 @@ impl LicenseManager {
         }
 
         // Load cached record
-        let record = self.cache.load(key_hash)?
-            .ok_or(online_error)?;
+        let record = self.cache.load(key_hash)?.ok_or(online_error)?;
 
         // Verify cache authenticity and grace period
         record.verify(
@@ -240,11 +243,7 @@ impl LicenseManager {
         let state = LicenseState::from_keygen_response(&response)?;
 
         // Check access policy
-        let caps = check_access_with_usage(
-            &state,
-            self.config.required_entitlements,
-            0,
-        )?;
+        let caps = check_access_with_usage(&state, self.config.required_entitlements, 0)?;
 
         Ok(ValidationResult {
             valid: state.valid,

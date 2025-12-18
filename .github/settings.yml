@@ -1,0 +1,8 @@
+repository:
+  name: gatewarden
+  description: Hardened Keygen.sh license validation for Rust (Ed25519-verified responses, offline cache)
+  homepage: https://github.com/Michael-A-Kuykendall/gatewarden
+  topics: rust, licensing, keygen, ed25519, cryptography, security, offline, cache
+  has_issues: true
+  has_projects: false
+  has_wiki: false

@@ -3,7 +3,7 @@
 //! This module enforces access policies based on:
 //! - Required entitlements (all must be present)
 //! - License validity (state must be valid)
-//! - Usage caps (monthly limits from Keygen)
+//! - Usage caps (limits from Keygen usage counters; period semantics are consumer-defined)
 
 use crate::protocol::models::LicenseState;
 use crate::GatewardenError;
@@ -41,15 +41,17 @@ pub fn check_access(
 
 /// Extract usage caps from license state.
 ///
-/// Returns monthly cap information for metering.
-/// The semantics match shimmy-vision's existing behavior:
-/// - `max_uses` from Keygen is treated as monthly limit
+/// Returns usage cap information derived from Keygen's `uses`/`maxUses` counters.
+///
+/// Note: Keygen's `uses` counter does not inherently encode a billing period (e.g., monthly)
+/// unless your system resets it on that cadence (via a backend job calling Keygen's
+/// reset-usage action) or enforces period-based metering outside of Keygen.
 #[derive(Debug, Clone)]
 pub struct UsageCaps {
-    /// Monthly usage limit (None = unlimited)
+    /// Usage limit (None = unlimited). Period semantics are consumer-defined.
     pub monthly_limit: Option<u64>,
 
-    /// Current month's usage count from Keygen
+    /// Current usage count from Keygen.
     pub current_uses: Option<u64>,
 }
 
@@ -156,14 +158,18 @@ mod tests {
     fn test_check_access_missing_entitlement() {
         let state = make_valid_state(vec!["basic".to_string()]);
         let result = check_access(&state, &["vision"]);
-        assert!(matches!(result, Err(GatewardenError::EntitlementMissing { code }) if code == "vision"));
+        assert!(
+            matches!(result, Err(GatewardenError::EntitlementMissing { code }) if code == "vision")
+        );
     }
 
     #[test]
     fn test_check_access_missing_one_of_multiple() {
         let state = make_valid_state(vec!["vision".to_string()]);
         let result = check_access(&state, &["vision", "pro"]);
-        assert!(matches!(result, Err(GatewardenError::EntitlementMissing { code }) if code == "pro"));
+        assert!(
+            matches!(result, Err(GatewardenError::EntitlementMissing { code }) if code == "pro")
+        );
     }
 
     #[test]
@@ -256,6 +262,9 @@ mod tests {
         state.current_uses = Some(0);
 
         let result = check_access_with_usage(&state, &["vision"], 1);
-        assert!(matches!(result, Err(GatewardenError::EntitlementMissing { .. })));
+        assert!(matches!(
+            result,
+            Err(GatewardenError::EntitlementMissing { .. })
+        ));
     }
 }
