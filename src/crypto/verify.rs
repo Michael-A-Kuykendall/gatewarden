@@ -10,9 +10,13 @@ use std::sync::RwLock;
 /// Parsed signature header components.
 #[derive(Debug, Clone)]
 pub struct ParsedSignatureHeader {
+    /// Key ID from the signature header (if present).
     pub key_id: Option<String>,
+    /// Signature algorithm (should be "ed25519").
     pub algorithm: String,
+    /// Base64-encoded signature.
     pub signature: String,
+    /// Headers included in the signing string.
     pub headers: Vec<String>,
 }
 
