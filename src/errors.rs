@@ -1,4 +1,30 @@
 //! Gatewarden error types.
+//!
+//! Errors are grouped into categories for easier handling:
+//!
+//! ## License Errors (user-actionable)
+//! - [`GatewardenError::InvalidLicense`] — license expired, revoked, or invalid
+//! - [`GatewardenError::EntitlementMissing`] — license lacks required feature
+//! - [`GatewardenError::MissingLicense`] — no license key provided
+//! - [`GatewardenError::UsageLimitExceeded`] — usage cap reached
+//!
+//! ## Security Errors (investigate)
+//! - [`GatewardenError::SignatureInvalid`] — response signature didn't verify
+//! - [`GatewardenError::SignatureMissing`] — response had no signature
+//! - [`GatewardenError::DigestMismatch`] — response body was modified
+//! - [`GatewardenError::ResponseTooOld`] — possible replay attack
+//! - [`GatewardenError::ResponseFromFuture`] — clock tampering suspected
+//! - [`GatewardenError::CacheTampered`] — cached record was modified
+//!
+//! ## Network/IO Errors (retry or use cache)
+//! - [`GatewardenError::KeygenTransport`] — network error to Keygen
+//! - [`GatewardenError::CacheIO`] — cache read/write failed
+//! - [`GatewardenError::CacheExpired`] — offline grace period exceeded
+//! - [`GatewardenError::MeterIO`] — usage meter I/O failed
+//!
+//! ## Configuration Errors (fix config)
+//! - [`GatewardenError::ConfigError`] — invalid configuration
+//! - [`GatewardenError::ProtocolError`] — unexpected Keygen response format
 
 use thiserror::Error;
 

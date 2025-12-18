@@ -9,74 +9,135 @@
     <a href="https://github.com/mcp-sh/gatewarden/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
 </p>
 
-Hardened Keygen.sh license validation for Rust.
+**Hardened [Keygen.sh](https://keygen.sh) license validation for Rust.**
 
-Gatewarden validates licenses using Keygen’s `validate-key` API and **cryptographically verifies** Keygen responses (Ed25519 signatures + optional SHA-256 digest) to prevent MITM/spoofed responses. It also supports an authenticated on-disk cache for offline grace.
+Gatewarden validates licenses via Keygen's `validate-key` API and **cryptographically verifies** every response using Ed25519 signatures—preventing MITM attacks, spoofed responses, and replay attacks. It also provides an authenticated on-disk cache for offline grace periods.
 
-## What this protects (threat model)
+## Why Gatewarden?
 
-Gatewarden is designed to protect against:
-- Spoofed Keygen responses (MITM / proxy tampering)
-- Replay of old responses (online freshness window)
-- Tampering of cached validation records
+Most Keygen integrations just check `meta.valid == true` in the JSON response. That's fine until someone points your app at a proxy that returns `{"meta":{"valid":true}}` for every request.
 
-Gatewarden does **not** prevent a determined attacker from bypassing licensing by patching your application binary. That is true for any client-side licensing mechanism.
+Gatewarden verifies the **Ed25519 signature** that Keygen attaches to every response, ensuring:
+
+| Threat | Protection |
+|--------|------------|
+| **MITM / proxy spoofing** | Response must be signed by Keygen's private key |
+| **Replay attacks** | Response rejected if older than 5 minutes |
+| **Body tampering** | SHA-256 digest verified (when present) |
+| **Cache tampering** | Cached records re-verified on load |
+| **Missing signatures** | Fail-closed: no signature = rejected |
 
 ## Quickstart
 
 ```rust
 use gatewarden::{GatewardenConfig, LicenseManager};
+use std::time::Duration;
 
 fn main() -> Result<(), gatewarden::GatewardenError> {
     let config = GatewardenConfig {
-        app_name: "myapp/1.0.0",
+        app_name: "myapp",
         feature_name: "pro",
-        account_id: "<your-keygen-account-id>",
-        public_key_hex: "<your-keygen-ed25519-public-key-hex>",
-        required_entitlements: &["PRO"],
+        account_id: "your-keygen-account-id",
+        public_key_hex: "your-keygen-ed25519-verify-key",
+        required_entitlements: &["PRO_FEATURE"],
         user_agent_product: "myapp",
         cache_namespace: "myapp",
-        offline_grace: std::time::Duration::from_secs(24 * 60 * 60),
+        offline_grace: Duration::from_secs(24 * 60 * 60), // 24 hours
     };
 
     let manager = LicenseManager::new(config)?;
     let result = manager.validate_key("LICENSE-KEY")?;
 
     if result.valid {
-        println!("License OK (from_cache={})", result.from_cache);
+        println!("License valid (cached: {})", result.from_cache);
     }
-
     Ok(())
 }
 ```
 
-## Offline grace
+## API Overview
 
-If the online request fails due to transport errors, Gatewarden can fall back to an authenticated cached record for `offline_grace`.
+| Method | Behavior |
+|--------|----------|
+| `validate_key(key)` | Online validation → signature verify → cache |
+| `check_access(key)` | Prefer cache (if within offline grace) → fallback to online |
 
-## Configuration notes
+Both methods verify signatures and entitlements. Use `validate_key` when you want fresh validation; use `check_access` for typical runtime checks where offline grace is acceptable.
 
-- `public_key_hex` is Keygen’s Ed25519 **verify** key (public).
-- `required_entitlements` is a static list of entitlement codes that must be present in Keygen’s signed response.
-- License keys are **not** persisted; cache entries are keyed by a SHA-256 hash of the license key.
+## Error Handling
 
-## API overview
+Gatewarden uses typed errors for precise handling:
 
-- `LicenseManager::validate_key(license_key)` performs an online validate (with signature verification) and writes an authenticated cache record.
-- `LicenseManager::check_access(license_key)` prefers the cache (if valid under `offline_grace`) and otherwise falls back to the online path.
+```rust
+use gatewarden::GatewardenError;
 
-## Local testing
+match manager.validate_key(&license_key) {
+    Ok(result) if result.valid => { /* proceed */ }
+    Ok(_) => { /* license invalid */ }
+    
+    // License issues (user-actionable)
+    Err(GatewardenError::InvalidLicense) => { /* expired or revoked */ }
+    Err(GatewardenError::EntitlementMissing { code }) => { /* wrong tier */ }
+    
+    // Security events (log and investigate)
+    Err(GatewardenError::SignatureInvalid) => { /* possible tampering */ }
+    Err(GatewardenError::SignatureMissing) => { /* response unsigned */ }
+    Err(GatewardenError::DigestMismatch) => { /* body modified */ }
+    Err(GatewardenError::ResponseTooOld { .. }) => { /* replay attempt */ }
+    
+    // Network issues (may use offline cache)
+    Err(GatewardenError::KeygenTransport(_)) => { /* try check_access() */ }
+    
+    Err(e) => { /* other errors */ }
+}
+```
 
-See LOCAL_TESTING.md.
+## Configuration
+
+| Field | Description |
+|-------|-------------|
+| `account_id` | Your Keygen account UUID |
+| `public_key_hex` | Keygen's Ed25519 verify key (64 hex characters) |
+| `required_entitlements` | Entitlement codes the license must have |
+| `offline_grace` | How long cached validations remain valid when offline |
+| `cache_namespace` | Directory name for cache files (under user cache dir) |
+
+Get your public key from Keygen Dashboard → Settings → Public Key.
+
+## Offline Grace
+
+When online validation fails due to network issues, Gatewarden falls back to the authenticated cache:
+
+1. Cache records include the original Keygen signature
+2. Records are re-verified on every load (tamper-resistant)
+3. Records expire after `offline_grace` duration
+4. License keys are never stored—cache entries are keyed by SHA-256 hash
+
+## Security Model
+
+**What Gatewarden protects:**
+- Remote attackers cannot spoof valid license responses
+- Network-level adversaries cannot replay old responses
+- Local attackers cannot modify cached validation records
+
+**What Gatewarden does NOT protect:**
+- Binary patching (attacker modifies your executable)
+- Memory manipulation (attacker patches validation logic at runtime)
+
+This is inherent to client-side licensing. If an attacker has full control of the machine, they can bypass any local check. Gatewarden raises the bar from "intercept HTTP" to "reverse engineer binary."
+
+## Examples
+
+See [`examples/basic_validation.rs`](examples/basic_validation.rs) for a complete working example with error handling.
+
+## Local Testing
+
+See [LOCAL_TESTING.md](LOCAL_TESTING.md) for integration testing against real Keygen APIs.
 
 ## Contributing
 
-See CONTRIBUTING.md.
-
-## Security
-
-See SECURITY.md.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
