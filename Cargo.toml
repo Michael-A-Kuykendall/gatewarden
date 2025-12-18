@@ -12,6 +12,7 @@ documentation = "https://docs.rs/gatewarden"
 keywords = ["license", "keygen", "security", "ed25519", "offline"]
 categories = ["authentication", "cryptography", "web-programming"]
 rust-version = "1.70"
+exclude = [".github/copilot-instructions.md"]
 
 [dependencies]
 # Crypto

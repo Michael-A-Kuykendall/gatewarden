@@ -1,7 +1,7 @@
 # Copilot Instructions (Gatewarden)
 
 ## Project Overview
-Gatewarden is a **private Rust crate** providing hardened Keygen.sh license validation infrastructure. It will be reused across multiple commercial products (shimmy-vision, crabcamera-pro, future products).
+Gatewarden is a **public Rust crate** providing hardened Keygen.sh license validation infrastructure. It is used across multiple commercial products (shimmy-vision, crabcamera-pro, future products).
 
 ## Non-Negotiables
 
@@ -86,7 +86,6 @@ once_cell = "1"
 ```
 
 ## What NOT to Do
-- Do NOT publish to crates.io (private crate)
 - Do NOT add axum/http dependencies in core (optional integration only)
 - Do NOT use `Box<dyn Error>` - use typed `GatewardenError`
 - Do NOT use `async-trait` - use `impl Future` where needed
