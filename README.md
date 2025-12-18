@@ -13,7 +13,9 @@
 
 <h2 align="center">Hardened <a href="https://keygen.sh">Keygen.sh</a> license validation for Rust.</h2>
 
-Gatewarden validates licenses via Keygen's `validate-key` API and **cryptographically verifies** every response using Ed25519 signatures—preventing MITM attacks, spoofed responses, and replay attacks. It also provides an authenticated on-disk cache for offline grace periods.
+**Gatewarden is for developers who use Keygen.sh and want cryptographic assurance—not just HTTP success—that a license validation response is authentic.**
+
+*Hardened* means Gatewarden treats license validation as an adversarial protocol, not a trusted API call. It upgrades Keygen's client-side validation from "API trust" to "cryptographic trust."
 
 ## Why Gatewarden?
 
@@ -28,6 +30,15 @@ Gatewarden verifies the **Ed25519 signature** that Keygen attaches to every resp
 | **Body tampering** | SHA-256 digest verified (when present) |
 | **Cache tampering** | Cached records re-verified on load |
 | **Missing signatures** | Fail-closed: no signature = rejected |
+
+## Non-Goals
+
+Gatewarden does **not** attempt to:
+- Replace Keygen.sh (it's a client for Keygen, not an alternative)
+- Prevent binary patching or runtime memory manipulation
+- Provide DRM or anti-reverse-engineering
+
+If an attacker has full control of the machine, they can bypass any client-side check. Gatewarden raises the bar from "intercept HTTP" to "reverse engineer binary."
 
 ## Quickstart
 
@@ -48,6 +59,8 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
     };
 
     let manager = LicenseManager::new(config)?;
+    
+    // validate_key: always hits Keygen, verifies signature, updates cache
     let result = manager.validate_key("LICENSE-KEY")?;
 
     if result.valid {
@@ -115,6 +128,17 @@ When online validation fails due to network issues, Gatewarden falls back to the
 3. Records expire after `offline_grace` duration
 4. License keys are never stored—cache entries are keyed by SHA-256 hash
 
+## Fail-Closed by Design
+
+Most license libraries fail *open*. Gatewarden fails *closed*:
+
+- Missing signature → **reject**
+- Invalid signature → **reject**
+- Stale response (>5 min) → **reject**
+- Cache tampering detected → **reject**
+
+Security failures are distinguishable from network failures through typed errors, so you can handle them appropriately.
+
 ## Security Model
 
 **What Gatewarden protects:**
@@ -122,11 +146,7 @@ When online validation fails due to network issues, Gatewarden falls back to the
 - Network-level adversaries cannot replay old responses
 - Local attackers cannot modify cached validation records
 
-**What Gatewarden does NOT protect:**
-- Binary patching (attacker modifies your executable)
-- Memory manipulation (attacker patches validation logic at runtime)
-
-This is inherent to client-side licensing. If an attacker has full control of the machine, they can bypass any local check. Gatewarden raises the bar from "intercept HTTP" to "reverse engineer binary."
+**Philosophy:** Licensing is not a business rule—it is an adversarial interface. Gatewarden treats it accordingly.
 
 ## Examples
 
