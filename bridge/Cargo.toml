@@ -1,0 +1,42 @@
+[package]
+name = "gatewarden-bridge"
+version = "0.2.0"
+edition = "2021"
+authors = ["Michael A. Kuykendall <michaelallenkuykendall@gmail.com>"]
+description = "Language-agnostic HTTP bridge sidecar for Gatewarden license validation"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Michael-A-Kuykendall/gatewarden"
+homepage = "https://github.com/Michael-A-Kuykendall/gatewarden"
+keywords = ["license", "keygen", "security", "ed25519", "sidecar"]
+categories = ["authentication", "web-programming", "command-line-utilities"]
+rust-version = "1.70"
+
+[[bin]]
+name = "gatewarden-bridge"
+path = "src/main.rs"
+
+[dependencies]
+# Core validation library
+gatewarden = { path = "..", version = "0.2.0" }
+
+# HTTP server
+axum = { version = "0.7", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+
+# Config + serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI args
+clap = { version = "4", features = ["derive"] }
