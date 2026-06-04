@@ -5,6 +5,87 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-03
+
+### Breaking Changes
+
+- **`GatewardenConfig` fields are now owned `String` / `Vec<String>`** instead of `&'static str`
+	/ `&'static [&'static str]`. Update your config construction:
+	```rust
+	// Before (0.1.x):
+	app_name: "my-app",
+	required_entitlements: &["PRO"],
+
+	// After (0.2.0):
+	app_name: "my-app".to_string(),
+	required_entitlements: vec!["PRO".to_string()],
+	```
+	This change enables runtime config loading (from TOML, secrets stores, or
+	Cloudflare Wrangler secrets) without requiring `'static` lifetimes.
+
+### Added
+
+- **Bridge binary (`gatewarden-bridge`)** — a language-agnostic HTTP sidecar that
+	exposes Gatewarden validation over a local JSON API (`127.0.0.1:4760`). TypeScript,
+	Python, Go, Ruby, and any other runtime can validate licenses without
+	reimplementing Ed25519 signature verification.
+	- `GET  /v1/health` — readiness probe
+	- `POST /v1/validate-key` — always validates against Keygen
+	- `POST /v1/check-access` — cache-first, with offline grace period
+	- `GET  /.well-known/openapi.json` — self-describing API spec
+	- Multi-profile: one bridge instance serves multiple products/plans
+	- Config loaded from TOML at startup; no secrets in source code
+
+- **Cloudflare Workers bridge template** (`templates/cloudflare-worker/`) — an
+	opt-in, zero-binary deployment path for teams already using Cloudflare. Exposes
+	the same HTTP contract as the local sidecar.
+	- Ed25519 response signature verification via Web Crypto API
+	- Response freshness check (5-minute window) and body digest verification
+	- Offline cache via CF KV (optional KV namespace binding)
+	- Secrets via `wrangler secret put` — never hardcoded
+	- Constant-time access token comparison (`X-Bridge-Token`)
+	- License keys are never stored; only SHA-256 hash used as cache key
+
+- **Stripe webhook hardening** (`cloudflare-worker/stripe-keygen-webhook.js`):
+	- Constant-time HMAC signature comparison (prevents timing attacks on webhook
+		signature verification)
+	- Idempotency guard: duplicate Stripe events are detected and ignored using
+		a KV-backed store (`STRIPE_IDEMPOTENCY_KV`) with 24-hour TTL
+	- Error responses no longer leak internal error messages to callers
+
+- **Bridge security hardening** (`bridge/`):
+	- Bearer token authentication via `X-Bridge-Token` header — constant-time
+		comparison prevents timing attacks; token set via `bearer_token` in bridge
+		TOML config or environment; requests without a valid token receive 401
+	- Per-IP token-bucket rate limiting — configurable `rate_limit_rps` (default 30
+		RPS, burst = 3×); callers exceeding burst receive 429; buckets pruned after 60s
+		of inactivity to prevent memory growth
+
+- **FSE-compliant policy engine** (`fse-gatewarden/`) — a new crate implementing
+	the Fused Semantic Execution architecture for license policy evaluation:
+	- Selector deduplication at compile time via `compile_rules()` — N rules sharing
+		M selectors evaluate in O(M) time, not O(N)
+	- Single-pass evaluation: `execute(&plan, &input)` scans each unique selector once
+	- Fail-closed semantics: unresolved required rules → False/deny; a missing or false
+		`bridge_token_valid` input denies even when all other signals are valid
+	- `default_security_rules()` covers the standard Gatewarden invariants
+		(signature, digest, freshness, entitlement, bridge-token chain)
+	- 9 FSE invariant tests + head-to-head benchmark proving O(unique_selectors) property:
+		`selectors_scanned` stays constant at 6 regardless of rule count (6 → 200)
+
+
+### Fixed
+
+- Example `examples/basic_validation.rs` updated for `String` field types
+
+### Migration Guide (0.1.x → 0.2.0)
+
+1. Add `.to_string()` to all `&'static str` fields in your `GatewardenConfig`.
+2. Change `required_entitlements: &["CODE"]` to `required_entitlements: vec!["CODE".to_string()]`.
+3. No changes to `LicenseManager::new()`, `validate_key()`, or `check_access()` call sites.
+
+---
+
 ## [0.1.2] - 2025-12-18
 
 ### Fixed
