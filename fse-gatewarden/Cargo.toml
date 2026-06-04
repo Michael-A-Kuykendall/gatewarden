@@ -1,0 +1,20 @@
+[package]
+name = "fse-gatewarden"
+version = "0.1.0"
+edition = "2021"
+authors = ["Michael A. Kuykendall <michaelallenkuykendall@gmail.com>"]
+description = "Selector-first FSE policy engine for Gatewarden hardening"
+license = "MIT"
+repository = "https://github.com/Michael-A-Kuykendall/gatewarden"
+rust-version = "1.70"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+gatewarden = { path = ".." }
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[[bin]]
+name = "head2head"
+path = "src/bin/head2head.rs"
