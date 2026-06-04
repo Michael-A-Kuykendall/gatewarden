@@ -10,6 +10,7 @@ use gatewarden::GatewardenError;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
+use tokio::task;
 
 use crate::state::AppState;
 
@@ -94,7 +95,7 @@ pub async fn validate_key(
         )
     })?;
 
-    match manager.validate_key(&req.license_key) {
+    match task::block_in_place(|| manager.validate_key(&req.license_key)) {
         Ok(result) => Ok(Json(ValidationResponse {
             valid: result.valid,
             from_cache: result.from_cache,
@@ -116,6 +117,15 @@ pub async fn validate_key(
                 GatewardenError::ConfigError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 _ => axum::http::StatusCode::OK,
             };
+            if status == axum::http::StatusCode::OK {
+                return Ok(Json(ValidationResponse {
+                    valid: false,
+                    from_cache: false,
+                    state_code: gatewarden_error_code(&e).to_string(),
+                    expires_at: None,
+                    entitlements: vec![],
+                }));
+            }
             Err((
                 status,
                 Json(ErrorEnvelope {
@@ -150,7 +160,7 @@ pub async fn check_access(
         )
     })?;
 
-    match manager.check_access(&req.license_key) {
+    match task::block_in_place(|| manager.check_access(&req.license_key)) {
         Ok(result) => Ok(Json(ValidationResponse {
             valid: result.valid,
             from_cache: result.from_cache,
@@ -168,6 +178,15 @@ pub async fn check_access(
                 }
                 _ => axum::http::StatusCode::OK,
             };
+            if status == axum::http::StatusCode::OK {
+                return Ok(Json(ValidationResponse {
+                    valid: false,
+                    from_cache: true,
+                    state_code: gatewarden_error_code(&e).to_string(),
+                    expires_at: None,
+                    entitlements: vec![],
+                }));
+            }
             Err((
                 status,
                 Json(ErrorEnvelope {
@@ -398,13 +417,18 @@ mod tests {
         };
 
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");
-        let err = match rt.block_on(validate_key(State(state), Json(req))) {
-            Err(err) => err,
-            Ok(_) => panic!("empty key should fail"),
-        };
-
-        assert_eq!(err.0, status_for_validate_error(&expected));
-        assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
+        match rt.block_on(validate_key(State(state), Json(req))) {
+            Ok(Json(resp)) => {
+                assert_eq!(status_for_validate_error(&expected), axum::http::StatusCode::OK);
+                assert!(!resp.valid);
+                assert_eq!(resp.state_code, gatewarden_error_code(&expected));
+            }
+            Err(err) => {
+                assert_ne!(status_for_validate_error(&expected), axum::http::StatusCode::OK);
+                assert_eq!(err.0, status_for_validate_error(&expected));
+                assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
+            }
+        }
     }
 
     #[test]
@@ -430,13 +454,18 @@ mod tests {
         };
 
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");
-        let err = match rt.block_on(check_access(State(state), Json(req))) {
-            Err(err) => err,
-            Ok(_) => panic!("cache miss should fail"),
-        };
-
-        assert_eq!(err.0, status_for_check_access_error(&expected));
-        assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
+        match rt.block_on(check_access(State(state), Json(req))) {
+            Ok(Json(resp)) => {
+                assert_eq!(status_for_check_access_error(&expected), axum::http::StatusCode::OK);
+                assert!(!resp.valid);
+                assert_eq!(resp.state_code, gatewarden_error_code(&expected));
+            }
+            Err(err) => {
+                assert_ne!(status_for_check_access_error(&expected), axum::http::StatusCode::OK);
+                assert_eq!(err.0, status_for_check_access_error(&expected));
+                assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
+            }
+        }
     }
 
     // ─── Auth + rate-limit unit tests ────────────────────────────────────────

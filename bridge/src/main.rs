@@ -69,7 +69,11 @@ async fn main() -> anyhow::Result<()> {
         bridge_config.profiles.len()
     );
 
-    let state = Arc::new(state::AppState::new(bridge_config)?);
+    let state = Arc::new(
+        tokio::task::spawn_blocking(move || state::AppState::new(bridge_config))
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to initialize bridge state: {}", e))??,
+    );
 
     // Authenticated sub-router — bearer token + rate limit applied here.
     let authed_token = state.bearer_token.clone();
