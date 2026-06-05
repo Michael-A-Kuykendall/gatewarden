@@ -5,6 +5,86 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-XX
+
+### Added
+
+- **FSE policy engine integrated into validation pipeline** — The Fused Semantic
+  Execution engine is now the authoritative policy decision point for all license
+  validations. FSE achieves O(M) evaluation time where M = unique selectors,
+  independent of rule count.
+  - `LicenseManager` compiles an FSE plan at initialization via `compile_default_plan()`
+  - Default rules cover signature verification, state validity, and entitlement checks
+  - `validate_online()` executes FSE evaluation after crypto verification
+  - Failed rule IDs are logged for debugging (e.g., "entitlements.required_0")
+
+- **Event-driven FSE runtime API** (`src/policy/fse/runtime.rs`)
+  - `RuntimeState` with incremental evaluation support
+  - `apply(selector, value)` — apply a selector value to all dependent rules
+  - `should_terminate()` — check for early exit condition
+  - `finalize()` — fail-closed finalization of unresolved rules
+  - Existing `execute()` function preserved for backward compatibility
+
+- **Expanded FSE predicates** (`src/policy/fse/model.rs`)
+  - `MinU64(n)` — value >= n
+  - `Exists` — value != Missing
+  - `InSet(Vec<String>)` — string membership check
+
+- **Namespaced rule IDs** — All FSE rules now have structured IDs:
+  - `crypto.*` — cryptographic checks (signature, digest, freshness)
+  - `response.*` — Keygen API response fields
+  - `entitlements.*` — entitlement-based rules
+  - `usage.*` — usage cap rules (future)
+
+- **Gatewarden-specific selectors** (`src/policy/fse/model.rs`)
+  - `StateCode` → String ("VALID", "EXPIRED", "SUSPENDED", etc.)
+  - `StateValid` → Bool (meta.valid field)
+  - `Entitlements` → Vec\<String\> (user's entitlements)
+  - `ExpiresAt` → Bool (presence check for expiration date)
+  - `UsageRemaining` → U64 (future usage tracking, returns Missing currently)
+
+- **GatewardenEvalInput** (`src/policy/fse/gatewarden_input.rs`)
+  - Implements `EvalInput` trait for FSE engine
+  - `from_validated_response()` constructor builds input from license state
+  - Maps Keygen response fields to FSE selector values
+
+- **Bridge FSE logging** — Bridge startup logs now show FSE plan stats per profile:
+  ```
+  INFO Profile 'prod': 5 rules, 4 unique selectors
+  ```
+  Failed FSE rules are logged with their IDs during validation.
+
+### Changed
+
+- **`RuntimeResult` structure** — Now returns `Vec<RuleOutcome>` instead of
+  `Vec<RuleDecision>` to include rule IDs in outcomes.
+
+### Testing
+
+- **FSE compliance test suite** (`tests/fse_compliance.rs`)
+  - Single-pass selector scanning verification
+  - Fail-closed semantics on unresolved required rules
+  - Early exit on all-required-resolved condition
+  - Value broadcast property (one extract, multiple rules)
+  - Selector deduplication at compile time
+
+- **Expanded property-based tests** (`tests/fse_invariants.rs`)
+  - Property: Adding rules with existing selectors doesn't increase scan count
+  - Property: `selectors_scanned <= plan.selectors.len()`
+  - Property: All required True → allow == true
+  - Property: Any required False → allow == false
+  - Property: New predicates (MinU64, Exists, InSet) match correctly
+  - 1000+ generated test cases per property (proptest)
+
+### Migration Guide (0.2.x → 0.3.0)
+
+No breaking API changes. FSE integration is internal to `LicenseManager`.
+
+If you were directly using FSE engine types from `fse-gatewarden` crate in 0.2.x,
+update imports to use the new paths in `src/policy/fse/`.
+
+---
+
 ## [0.2.0] - 2026-06-03
 
 ### Breaking Changes

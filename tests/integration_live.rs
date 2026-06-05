@@ -103,6 +103,110 @@ fn live_validate_key_verifies_signature() {
 
 #[test]
 #[ignore]
+fn live_fse_selectors_scanned_metric() {
+    // Verify that the selectors_scanned metric is present in validation result
+    // and has a reasonable value (not zero, not excessive).
+    let (config, license_key) = load_config()
+        .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+
+    let manager = LicenseManager::new(config).expect("LicenseManager should initialize");
+    let result = manager
+        .validate_key(&license_key)
+        .expect("validate_key should succeed");
+
+    assert!(result.valid, "License should be valid");
+    
+    // FSE should scan at least SignaturePresent, StateValid, and Entitlements (3 selectors)
+    assert!(
+        result.selectors_scanned >= 3,
+        "Expected at least 3 selectors scanned (SignaturePresent, StateValid, Entitlements), got {}",
+        result.selectors_scanned
+    );
+    
+    // Sanity check: shouldn't scan an unreasonable number
+    assert!(
+        result.selectors_scanned <= 10,
+        "Selector scan count seems excessive: {}",
+        result.selectors_scanned
+    );
+    
+    println!("  FSE selectors_scanned: {}", result.selectors_scanned);
+}
+
+#[test]
+#[ignore]
+fn live_fse_o1_behavior_with_multiple_entitlements() {
+    // Confirm O(1) behavior: adding entitlement RULES doesn't increase scan count.
+    // This is the FSE proof metric — extra rules on shared selectors don't
+    // increase selector extraction cost.
+    
+    let base_entitlement = std::env::var("GATEWARDEN_TEST_ENTITLEMENT").unwrap_or_default();
+    
+    if base_entitlement.is_empty() {
+        println!("  Skipping O(1) test: GATEWARDEN_TEST_ENTITLEMENT not set");
+        return;
+    }
+    
+    // Config 1: Single entitlement (creates 1 rule checking Entitlements selector)
+    let (mut config1, license_key) = load_config()
+        .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+    config1.required_entitlements = vec![base_entitlement.clone()];
+    config1.cache_namespace = format!(
+        "gatewarden-live-test-o1-single-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+
+    let manager1 = LicenseManager::new(config1).expect("LicenseManager should initialize");
+    let result1 = manager1
+        .validate_key(&license_key)
+        .expect("validate_key should succeed");
+    
+    // Config 2: Multiple entitlement rules (3 rules, all checking same Entitlements selector)
+    let (mut config2, _) = load_config().unwrap();
+    config2.required_entitlements = vec![
+        base_entitlement.clone(),
+        base_entitlement.clone(), // Duplicate intentionally - creates additional rule
+        base_entitlement.clone(), // Another duplicate - third rule
+    ];
+    config2.cache_namespace = format!(
+        "gatewarden-live-test-o1-triple-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+
+    let manager2 = LicenseManager::new(config2).expect("LicenseManager should initialize");
+    let result2 = manager2
+        .validate_key(&license_key)
+        .expect("validate_key should succeed with duplicate entitlements");
+    
+    // FSE O(1) invariant: adding rules that share selectors doesn't increase scan count
+    // Both configs check SignaturePresent, StateValid, and Entitlements = 3 selectors
+    // The second config has 3x more entitlement rules, but still scans Entitlements once
+    println!("  Config 1 (1 entitlement rule): selectors_scanned = {}", result1.selectors_scanned);
+    println!("  Config 2 (3 entitlement rules): selectors_scanned = {}", result2.selectors_scanned);
+    
+    assert_eq!(
+        result1.selectors_scanned, result2.selectors_scanned,
+        "FSE O(1) invariant violated: adding entitlement rules increased scan count from {} to {}",
+        result1.selectors_scanned, result2.selectors_scanned
+    );
+    
+    assert_eq!(
+        result1.selectors_scanned, 3,
+        "Expected 3 selectors (SignaturePresent, StateValid, Entitlements), got {}",
+        result1.selectors_scanned
+    );
+    
+    println!("  ✓ FSE O(1) property confirmed: {} selectors scanned regardless of rule count", result1.selectors_scanned);
+}
+
+#[test]
+#[ignore]
 fn live_check_access_after_validate_uses_cache() {
     let (config, license_key) = load_config()
         .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");

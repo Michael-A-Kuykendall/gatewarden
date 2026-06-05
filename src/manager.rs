@@ -34,6 +34,9 @@ pub struct ValidationResult {
 
     /// Whether this result came from cache.
     pub from_cache: bool,
+
+    /// Number of unique selectors scanned by FSE (proof metric for O(1) behavior).
+    pub selectors_scanned: usize,
 }
 
 /// Main license manager for Gatewarden.
@@ -155,6 +158,21 @@ impl LicenseManager {
             .map_err(|e| GatewardenError::ProtocolError(format!("Cache parse error: {}", e)))?;
 
         let state = LicenseState::from_keygen_response(&response)?;
+        
+        // ─── FSE evaluation (check_access cached) ─────────────────────
+        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+        let fse_result = execute(&self.fse_plan, &input);
+        
+        if !fse_result.allow {
+            for outcome in &fse_result.outcomes {
+                if outcome.decision == RuleDecision::False {
+                    tracing::warn!("FSE rule failed (check_access): {}", outcome.rule_id);
+                }
+            }
+            return Err(GatewardenError::InvalidLicense);
+        }
+        // ──────────────────────────────────────────────────────────────
+        
         let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let caps = check_access_with_usage(
             &state,
@@ -167,6 +185,7 @@ impl LicenseManager {
             state,
             caps,
             from_cache: true,
+            selectors_scanned: fse_result.selectors_scanned,
         })
     }
 
@@ -240,6 +259,7 @@ impl LicenseManager {
             state,
             caps,
             from_cache: false,
+            selectors_scanned: fse_result.selectors_scanned,
         })
     }
 
@@ -270,6 +290,20 @@ impl LicenseManager {
 
         let state = LicenseState::from_keygen_response(&response)?;
 
+        // ─── FSE evaluation (offline cached) ──────────────────────────
+        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+        let fse_result = execute(&self.fse_plan, &input);
+        
+        if !fse_result.allow {
+            for outcome in &fse_result.outcomes {
+                if outcome.decision == RuleDecision::False {
+                    tracing::warn!("FSE rule failed (cached): {}", outcome.rule_id);
+                }
+            }
+            return Err(GatewardenError::InvalidLicense);
+        }
+        // ──────────────────────────────────────────────────────────────
+
         // Check access policy
         let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let caps = check_access_with_usage(&state, &entitlements, 0)?;
@@ -279,6 +313,7 @@ impl LicenseManager {
             state,
             caps,
             from_cache: true,
+            selectors_scanned: fse_result.selectors_scanned,
         })
     }
 

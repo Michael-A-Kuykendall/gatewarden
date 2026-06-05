@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.2.1 (Current — In Progress)
+## v0.2.1 (Released)
 
 Surgical cleanup and hardening. No behavior changes to validation pipeline.
 
@@ -17,24 +17,31 @@ Surgical cleanup and hardening. No behavior changes to validation pipeline.
 
 ---
 
-## v0.3.0 (Next)
+## v0.3.0 (Current — Released)
 
-Wire FSE into the live validation pipeline. The FSE engine becomes the
+Wire FSE into the live validation pipeline. The FSE engine is now the
 authoritative policy decision point.
 
-- [ ] Adopt chat-chronicle's `apply`/`finalize`/`shouldTerminate` split in runtime
-- [ ] Expanded predicates: `MinU64`, `Exists`, `InSet(Vec<String>)`
-- [ ] Namespaced rule IDs (e.g., `response.signature_present`)
-- [ ] Wire FSE into `LicenseManager::validate_online()` — build EvalInput from response
-- [ ] Bridge `AppState` holds one `CompiledPlan` per profile (compiled at startup)
-- [ ] `/v1/check-access` uses FSE plan for cache-read decision path
-- [ ] Compliance test suite modeled on chat-chronicle's fseCompliance.test.ts
-- [ ] Property-based tests (proptest) for FSE invariants
+- [x] Event-driven runtime API (`RuntimeState` with `apply`/`finalize`/`shouldTerminate`)
+- [x] Expanded predicates: `MinU64`, `Exists`, `InSet(Vec<String>)`
+- [x] Namespaced rule IDs (e.g., `crypto.signature_verified`, `entitlements.required_N`)
+- [x] Gatewarden-specific selectors: `StateCode`, `StateValid`, `Entitlements`, `ExpiresAt`, `UsageRemaining`
+- [x] `GatewardenEvalInput` implementation for license response mapping
+- [x] FSE wired into `LicenseManager::validate_online()` — authoritative policy evaluation
+- [x] Bridge startup logging shows FSE plan stats per profile
+- [x] `compile_default_plan()` generates rules from `GatewardenConfig`
+- [x] Compliance test suite (`fse_compliance.rs`) covering FSE core properties
+- [x] Property-based tests expanded (proptest) for FSE invariants and new predicates
+- [x] Integration tests confirm FSE decisions with live Keygen API
+- [x] Documentation updated (ARCHITECTURE, DEVELOPERS, CHANGELOG, ROADMAP)
 
 ---
 
-## v0.4.0 (Future)
+## v0.4.0 (Next)
 
+Focus: Runtime flexibility, client libraries, and operational tooling.
+
+- [ ] `/v1/check-access` uses FSE plan for cache-read decision path (deferred from v0.3.0)
 - [ ] Async validation path (non-blocking for Tokio runtimes)
 - [ ] TypeScript client package generated from OpenAPI spec
 - [ ] Python client package
@@ -43,6 +50,7 @@ authoritative policy decision point.
 - [ ] Trusted proxy configuration (X-Forwarded-For header trust policy)
 - [ ] Prometheus metrics endpoint for the bridge
 - [ ] Docker image published to GHCR
+- [ ] Custom FSE rule loading from config (beyond defaults)
 
 ---
 

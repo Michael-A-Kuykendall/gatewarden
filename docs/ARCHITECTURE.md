@@ -159,9 +159,108 @@ Return ValidationResult { valid: true }
 
 ## FSE Policy Engine
 
-The Fused Semantic Execution engine provides composable, testable policy
-evaluation. See the [FSE steering doc](../.kiro/steering/fused-semantic-execution.md)
-for the architectural principles and patent context.
+The Fused Semantic Execution engine is the authoritative policy decision point
+for license validation. FSE is a selector-first, single-pass evaluation architecture
+that achieves O(M) runtime complexity where M = unique selectors, independent of
+rule count.
 
-Currently the FSE engine is tested in isolation. In v0.3.0 it will be wired
-into the live validation pipeline as the authoritative policy decision point.
+### Core Architecture
+
+```
+Compile Phase (startup)
+─────────────────────
+  GatewardenConfig
+       │
+       ▼
+  compile_default_plan()
+       │
+       ├─→ crypto.signature_verified (required)
+       ├─→ response.state_valid (required)
+       └─→ entitlements.required_N (required, one per config)
+       │
+       ▼
+  CompiledPlan
+  ├── rules: Vec<Rule>
+  ├── selectors: Vec<Selector>  ← deduplicated
+  └── path_index: HashMap<Selector, Vec<usize>>
+
+Execute Phase (per request)
+──────────────────────────
+  ValidationResponse + signature_verified
+       │
+       ▼
+  GatewardenEvalInput::from_validated_response()
+       │
+       ▼
+  execute(plan, input)
+  ├─→ For each unique selector:
+  │     ├─→ Extract value ONCE
+  │     └─→ Broadcast to all dependent rules
+  ├─→ Early exit when all required rules resolved
+  └─→ Finalize (fail-closed)
+       │
+       ▼
+  RuntimeResult { allow: bool, outcomes, selectors_scanned }
+```
+
+### Selectors
+
+FSE selectors extract values from the validation response:
+
+| Selector | Type | Source |
+|----------|------|--------|
+| `SignaturePresent` | Bool | Crypto pipeline verification result |
+| `StateCode` | String | `response.meta.code` ("VALID", "EXPIRED", etc.) |
+| `StateValid` | Bool | `response.meta.valid` |
+| `Entitlements` | Vec\<String\> | `response.data.attributes.entitlements` |
+| `ExpiresAt` | Bool (presence) | `response.data.attributes.expiresAt` |
+| `UsageRemaining` | U64 | Usage tracking (future) |
+
+### Default Rules
+
+Every `LicenseManager` compiles a default FSE plan at initialization:
+
+```rust
+Rule { id: "crypto.signature_verified", selector: SignaturePresent, predicate: BoolIsTrue, required: true }
+Rule { id: "response.state_valid", selector: StateValid, predicate: BoolIsTrue, required: true }
+Rule { id: "entitlements.required_0", selector: Entitlements, predicate: ContainsString("PRO"), required: true }
+// ... one rule per required_entitlements entry
+```
+
+### Integration Point
+
+FSE evaluation occurs in `LicenseManager::validate_online()` immediately after
+cryptographic verification:
+
+```rust
+// 1. Crypto verification
+verify_response(&response, &self.config.public_key_hex, self.clock.as_ref())?;
+
+// 2. Parse response
+let state = LicenseState::from_keygen_response(&keygen_response)?;
+
+// 3. FSE policy evaluation ← authoritative decision
+let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+let fse_result = execute(&self.fse_plan, &input);
+
+if !fse_result.allow {
+    return Err(GatewardenError::InvalidLicense);
+}
+
+// 4. Cache + return result
+```
+
+### Performance Characteristics
+
+FSE achieves constant-time evaluation per rule when selectors are shared:
+
+- **Without FSE:** Adding 10 entitlement rules = 10 additional selector extractions
+- **With FSE:** Adding 10 rules on `Entitlements` selector = 0 additional extractions
+
+The `RuntimeResult::selectors_scanned` metric proves this O(1) property in tests.
+
+### Patent Notice
+
+FSE implements a selector-first, single-pass rule evaluation architecture that is
+the subject of a pending patent by Michael A. Kuykendall. See source headers for
+full patent notice.

@@ -85,13 +85,114 @@ gatewarden/
 - Clock abstraction (`Clock` trait) for deterministic time-dependent tests
 - `#[cfg(any(test, feature = "test-seams"))]` for test-only public APIs
 
-## Adding a New Selector to the FSE Engine
+## FSE Policy Evaluation
+
+The Fused Semantic Execution (FSE) engine is the authoritative policy decision
+point for license validation. It evaluates rules in a single pass, scanning each
+unique selector only once regardless of how many rules reference it.
+
+### Architecture
+
+FSE operates in two phases:
+
+**1. Compile (at startup)**
+- `LicenseManager::with_clock()` calls `compile_default_plan(config)`
+- Default rules: signature verified, state valid, required entitlements
+- Selectors are deduplicated into a `CompiledPlan`
+- Each rule gets a namespaced ID (e.g., "entitlements.required_0")
+
+**2. Execute (per validation request)**
+- `validate_online()` builds a `GatewardenEvalInput` from the response
+- `execute(plan, input)` loops over unique selectors, not rules
+- Each selector value is extracted once and broadcast to all dependent rules
+- Early exit when all required rules are resolved
+- Fail-closed: unresolved required rules → False
+
+### Selectors
+
+Current selectors in `src/policy/fse/model.rs`:
+
+| Selector | Returns | Used For |
+|----------|---------|----------|
+| `SignaturePresent` | Bool | Crypto verification result |
+| `StateCode` | String | License state code ("VALID", "EXPIRED", etc.) |
+| `StateValid` | Bool | `meta.valid` from response |
+| `Entitlements` | Vec\<String\> | User's entitlements |
+| `ExpiresAt` | Bool | Presence check for expiration date |
+| `UsageRemaining` | U64 | Future usage tracking |
+
+### Predicates
+
+Available predicates in `src/policy/fse/model.rs`:
+
+| Predicate | Matches When |
+|-----------|--------------|
+| `BoolIsTrue` | value == true |
+| `EqString(s)` | value == s |
+| `ContainsString(s)` | Vec\<String\> contains s |
+| `InSet(vec)` | value in vec |
+| `MinU64(n)` | value >= n |
+| `MaxU64(n)` | value <= n |
+| `Exists` | value != Missing |
+
+### Adding a New Selector
 
 1. Add the variant to `Selector` in `src/policy/fse/model.rs`
-2. Add a corresponding field to `EvalInput`
-3. Implement `value_for()` for the new selector
-4. Add test cases in `tests/fse_invariants.rs`
-5. Run `cargo test --test fse_invariants` to confirm
+2. Update `GatewardenEvalInput::value_for()` in `src/policy/fse/gatewarden_input.rs`
+3. Add unit tests in `src/policy/fse/mod.rs`
+4. Add property tests in `tests/fse_invariants.rs`
+5. Run `cargo test --lib policy::fse && cargo test --test fse_invariants`
+
+### Adding a New Rule
+
+To add a custom rule beyond the defaults:
+
+```rust
+use gatewarden::policy::fse::{Rule, Selector, Predicate};
+
+let custom_rule = Rule {
+    id: "custom.max_usage".to_string(),
+    selector: Selector::UsageRemaining,
+    predicate: Predicate::MinU64(100),
+    required: true,
+};
+
+// Then recompile the plan with your custom rules
+let mut all_rules = default_rules(&config);
+all_rules.push(custom_rule);
+let plan = compile_rules(&all_rules)?;
+```
+
+### Testing FSE Rules
+
+**Unit tests** in `src/policy/fse/mod.rs` test individual predicates:
+```bash
+cargo test --lib policy::fse
+```
+
+**Invariant tests** in `tests/fse_invariants.rs` verify FSE properties:
+```bash
+cargo test --test fse_invariants --release
+```
+
+**Compliance tests** in `tests/fse_compliance.rs` verify fail-closed semantics:
+```bash
+cargo test --test fse_compliance
+```
+
+### Bridge FSE Logging
+
+The bridge logs FSE plan stats at startup:
+
+```
+INFO Profile 'prod': 5 rules, 4 unique selectors
+INFO Profile 'dev': 3 rules, 3 unique selectors
+```
+
+When a rule fails, the rule ID is logged:
+```
+WARN FSE rule failed: entitlements.required_0
+```
 
 ## Release Checklist
 
