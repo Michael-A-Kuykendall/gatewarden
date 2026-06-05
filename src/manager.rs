@@ -48,7 +48,6 @@ pub struct LicenseManager {
     clock: Arc<dyn Clock>,
     client: KeygenClient,
     cache: FileCache,
-    #[allow(dead_code)] // TODO: Used in Task 6 once type mismatch is fixed
     fse_plan: CompiledPlan,
 }
 
