@@ -31,13 +31,13 @@ fn main() {
 
     // Build configuration with compile-time constants
     let config = GatewardenConfig {
-        app_name: "example-app",
-        feature_name: "pro",
-        account_id: KEYGEN_ACCOUNT_ID,
-        public_key_hex: KEYGEN_PUBLIC_KEY,
-        required_entitlements: &["PRO_FEATURE"],
-        user_agent_product: "example-app",
-        cache_namespace: "example-app",
+        app_name: "example-app".to_string(),
+        feature_name: "pro".to_string(),
+        account_id: KEYGEN_ACCOUNT_ID.to_string(),
+        public_key_hex: KEYGEN_PUBLIC_KEY.to_string(),
+        required_entitlements: vec!["PRO_FEATURE".to_string()],
+        user_agent_product: "example-app".to_string(),
+        cache_namespace: "example-app".to_string(),
         offline_grace: Duration::from_secs(24 * 60 * 60), // 24 hours
     };
 

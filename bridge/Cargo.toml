@@ -1,6 +1,6 @@
 [package]
 name = "gatewarden-bridge"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Michael A. Kuykendall <michaelallenkuykendall@gmail.com>"]
 description = "Language-agnostic HTTP bridge sidecar for Gatewarden license validation"
@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core validation library
-gatewarden = { path = "..", version = "0.2.0" }
+gatewarden = { path = "..", version = "0.2.1" }
 
 # HTTP server
 axum = { version = "0.7", features = ["json"] }

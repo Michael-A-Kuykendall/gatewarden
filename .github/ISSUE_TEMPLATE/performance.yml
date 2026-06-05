@@ -1,0 +1,36 @@
+name: "⚡ Performance"
+description: Report a performance issue or regression
+labels: ["performance"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the performance issue
+      placeholder: What operation is slow? How slow is it?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected performance
+      placeholder: What performance do you expect based on the documentation or prior behavior?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - OS: [e.g., Ubuntu 24.04, Windows 11, macOS 15]
+        - Rust version: [e.g., 1.80]
+        - Gatewarden version: [e.g., 0.2.1]
+        - Running: [library / bridge]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: Minimal steps to observe the performance issue.
+    validations:
+      required: false

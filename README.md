@@ -156,9 +156,22 @@ See [`examples/basic_validation.rs`](examples/basic_validation.rs) for a complet
 
 See [LOCAL_TESTING.md](LOCAL_TESTING.md) for integration testing against real Keygen APIs.
 
+## Bridge API (Connector Surface)
+
+For non-Rust runtimes (TypeScript, JavaScript, Python), Gatewarden can be exposed via a local sidecar bridge.
+
+- Protocol overview: [docs/bridge-protocol.md](docs/bridge-protocol.md)
+- OpenAPI contract: [spec/gatewarden-bridge.openapi.yaml](spec/gatewarden-bridge.openapi.yaml)
+
+This keeps Gatewarden as the single cryptographic source of truth while enabling generated clients and standard API discovery.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Patent Notice
+
+Gatewarden's policy engine implements Fused Semantic Execution (FSE), a selector-first, single-pass rule evaluation architecture. FSE is the subject of a pending patent by Michael A. Kuykendall. All rights reserved.
 
 ## License
 

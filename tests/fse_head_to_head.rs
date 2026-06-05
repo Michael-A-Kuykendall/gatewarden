@@ -1,5 +1,5 @@
-use fse_gatewarden::engine::default_security_rules;
-use fse_gatewarden::{evaluate_policy, EvalInput};
+use gatewarden::policy::fse::engine::default_security_rules;
+use gatewarden::{evaluate_policy, FseEvalInput as EvalInput};
 use gatewarden::policy::access::check_access_with_usage;
 use gatewarden::LicenseState;
 
@@ -83,7 +83,6 @@ fn scenarios() -> Vec<Scenario> {
 }
 
 fn legacy_allow(s: &Scenario) -> bool {
-    // Legacy baseline focuses on license validity + entitlement + usage caps.
     let state = LicenseState {
         valid: s.valid,
         entitlements: s.entitlements.iter().map(|e| e.to_string()).collect(),
@@ -126,7 +125,6 @@ fn head_to_head_semantics() {
                 assert!(!fse, "fse should deny {}", s.name);
             }
             "stale_response" | "bridge_token_spoof" => {
-                // FSE adds hardening checks not represented in legacy policy-only baseline.
                 assert!(legacy, "legacy baseline allows {}", s.name);
                 assert!(!fse, "fse should deny {}", s.name);
             }

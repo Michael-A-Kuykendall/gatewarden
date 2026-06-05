@@ -22,13 +22,13 @@
 //!
 //! fn main() -> Result<(), gatewarden::GatewardenError> {
 //!     let config = GatewardenConfig {
-//!         app_name: "myapp",
-//!         feature_name: "pro",
-//!         account_id: "your-keygen-account-id",
-//!         public_key_hex: "your-keygen-ed25519-public-key-hex",
-//!         required_entitlements: &["PRO_FEATURE"],
-//!         user_agent_product: "myapp-pro",
-//!         cache_namespace: "myapp-pro",
+//!         app_name: "myapp".to_string(),
+//!         feature_name: "pro".to_string(),
+//!         account_id: "your-keygen-account-id".to_string(),
+//!         public_key_hex: "your-ed25519-public-key-64-hex-chars".to_string(),
+//!         required_entitlements: vec!["PRO_FEATURE".to_string()],
+//!         user_agent_product: "myapp-pro".to_string(),
+//!         cache_namespace: "myapp-pro".to_string(),
 //!         offline_grace: Duration::from_secs(24 * 60 * 60), // 24 hours
 //!     };
 //!
@@ -64,7 +64,6 @@
 
 #![deny(warnings)]
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/gatewarden/0.1.0")]
 
 // Core modules
 pub mod clock;
@@ -105,3 +104,11 @@ pub use protocol::models::LicenseState;
 
 #[cfg(any(test, feature = "test-seams"))]
 pub use clock::MockClock;
+
+// FSE policy engine re-exports (Fse-prefixed to avoid namespace collision)
+pub use policy::fse::model::{
+    EvalInput as FseEvalInput, Predicate as FsePredicate, Rule as FseRule,
+    RuleDecision as FseRuleDecision, Selector as FseSelector, Value as FseValue,
+};
+pub use policy::fse::runtime::{RuleOutcome as FseRuleOutcome, RuntimeState as FseRuntimeState};
+pub use policy::fse::engine::{evaluate_policy, EvaluationReport};

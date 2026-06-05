@@ -1,0 +1,32 @@
+# Gatewarden Bridge Configuration
+# Copy this to bridge.toml and fill in your Keygen credentials.
+
+# ─── Network ──────────────────────────────────────────────────────────────────
+port = 4760
+bind = "127.0.0.1"   # Loopback-only. Use "0.0.0.0" only inside trusted containers.
+
+# ─── Authentication ───────────────────────────────────────────────────────────
+# Shared secret. Callers must send X-Bridge-Token: <this value> on every request.
+# Use at least 20 random characters. Omit only for local dev.
+# Generate with: openssl rand -base64 32
+bearer_token = "CHANGE-ME-generate-a-real-token-here"
+
+# ─── Rate Limiting ────────────────────────────────────────────────────────────
+# Max requests per second per source IP. Burst capacity = 3× this value.
+rate_limit_rps = 30
+
+# ─── Profiles ─────────────────────────────────────────────────────────────────
+# Define one profile per product/plan. Clients pass profileId in requests.
+
+[profiles.myapp-pro]
+# Your Keygen account UUID (from Keygen Dashboard → Settings)
+account_id = "00000000-0000-0000-0000-000000000000"
+
+# Ed25519 verify key from Keygen Dashboard → Settings → Public Key (64 hex chars)
+public_key_hex = "0000000000000000000000000000000000000000000000000000000000000000"
+
+# Entitlement codes the license MUST have for access to be granted
+required_entitlements = ["PRO"]
+
+# How long a cached validation remains valid when Keygen is unreachable (seconds)
+offline_grace_secs = 86400   # 24 hours

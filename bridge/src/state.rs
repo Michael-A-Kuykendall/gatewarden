@@ -36,6 +36,24 @@ impl AppState {
 
         let rps = config.rate_limit_rps.unwrap_or(DEFAULT_RATE_LIMIT_RPS);
 
+        // Warn about weak or missing bearer token configuration.
+        match &config.bearer_token {
+            None => {
+                tracing::warn!(
+                    "No bearer token configured. All /v1/* requests will be accepted \
+                     without authentication. Set `bearer_token` in bridge.toml for production use."
+                );
+            }
+            Some(t) if t.len() < 20 => {
+                tracing::warn!(
+                    "Bearer token is shorter than the recommended 20-character minimum \
+                     ({} chars). Consider using a longer, randomly generated token.",
+                    t.len()
+                );
+            }
+            Some(_) => {}
+        }
+
         Ok(Self {
             managers,
             version: env!("CARGO_PKG_VERSION").to_string(),

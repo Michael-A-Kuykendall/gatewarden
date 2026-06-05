@@ -73,7 +73,7 @@ impl LicenseManager {
         clock: Arc<dyn Clock>,
     ) -> Result<Self, GatewardenError> {
         let client = KeygenClient::new(&config)?;
-        let cache = FileCache::new(config.cache_namespace)?;
+        let cache = FileCache::new(&config.cache_namespace)?;
 
         Ok(Self {
             config,
@@ -135,7 +135,7 @@ impl LicenseManager {
 
         // Verify cache is authentic and within grace
         record.verify(
-            self.config.public_key_hex,
+            &self.config.public_key_hex,
             self.config.offline_grace,
             self.clock.as_ref(),
         )?;
@@ -145,9 +145,10 @@ impl LicenseManager {
             .map_err(|e| GatewardenError::ProtocolError(format!("Cache parse error: {}", e)))?;
 
         let state = LicenseState::from_keygen_response(&response)?;
+        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let caps = check_access_with_usage(
             &state,
-            self.config.required_entitlements,
+            &entitlements,
             0, // No new usage
         )?;
 
@@ -167,12 +168,13 @@ impl LicenseManager {
     ) -> Result<ValidationResult, GatewardenError> {
         // Call Keygen with required entitlements in scope
         // This ensures Keygen echoes back the entitlements in the response
+        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let response = self
             .client
-            .validate_key(license_key, self.config.required_entitlements)?;
+            .validate_key(license_key, &entitlements)?;
 
         // Verify signature, digest, and freshness
-        verify_response(&response, self.config.public_key_hex, self.clock.as_ref())?;
+        verify_response(&response, &self.config.public_key_hex, self.clock.as_ref())?;
 
         // Extract fields we need for caching before parsing body
         let date = response.date.clone().unwrap_or_default();
@@ -189,9 +191,10 @@ impl LicenseManager {
         let state = LicenseState::from_keygen_response(&keygen_response)?;
 
         // Check access policy
+        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let caps = check_access_with_usage(
             &state,
-            self.config.required_entitlements,
+            &entitlements,
             0, // No new usage for validation
         )?;
 
@@ -231,7 +234,7 @@ impl LicenseManager {
 
         // Verify cache authenticity and grace period
         record.verify(
-            self.config.public_key_hex,
+            &self.config.public_key_hex,
             self.config.offline_grace,
             self.clock.as_ref(),
         )?;
@@ -243,7 +246,8 @@ impl LicenseManager {
         let state = LicenseState::from_keygen_response(&response)?;
 
         // Check access policy
-        let caps = check_access_with_usage(&state, self.config.required_entitlements, 0)?;
+        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
+        let caps = check_access_with_usage(&state, &entitlements, 0)?;
 
         Ok(ValidationResult {
             valid: state.valid,
@@ -266,13 +270,13 @@ mod tests {
 
     fn test_config() -> GatewardenConfig {
         GatewardenConfig {
-            app_name: "test-app",
-            feature_name: "test",
-            account_id: "test-account",
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
-            required_entitlements: &[],
-            user_agent_product: "test-product",
-            cache_namespace: "gatewarden-test",
+            app_name: "test-app".to_string(),
+            feature_name: "test".to_string(),
+            account_id: "test-account".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            required_entitlements: vec![],
+            user_agent_product: "test-product".to_string(),
+            cache_namespace: "gatewarden-test".to_string(),
             offline_grace: Duration::from_secs(86400),
         }
     }

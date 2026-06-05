@@ -1,0 +1,24 @@
+name: "🔒 Security"
+description: Report a security concern (non-critical). For critical vulnerabilities, email directly per SECURITY.md.
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Critical vulnerabilities**: Do NOT use this form. Email michaelallenkuykendall@gmail.com directly per [SECURITY.md](../../SECURITY.md).
+
+        Use this form for non-critical security hardening suggestions, defense-in-depth improvements, or security-adjacent bugs that do not enable active exploitation.
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the security concern
+      placeholder: What is the concern and what is the potential impact?
+    validations:
+      required: true
+  - type: textarea
+    id: suggested_fix
+    attributes:
+      label: Suggested mitigation
+      placeholder: How would you suggest fixing this?
+    validations:
+      required: false

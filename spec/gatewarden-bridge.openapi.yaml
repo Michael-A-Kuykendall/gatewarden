@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: Gatewarden Bridge API
+  version: 0.1.0
+  summary: Language-agnostic connector interface for Gatewarden license validation
+  description: |
+    HTTP bridge contract for Gatewarden. This API is intended for connectors
+    in TypeScript, JavaScript, Python, and other runtimes that need hardened
+    Keygen validation via the Gatewarden Rust core.
+servers:
+  - url: http://127.0.0.1:4760
+    description: Local sidecar default
+paths:
+  /v1/health:
+    get:
+      operationId: healthCheck
+      summary: Health and version metadata
+      responses:
+        "200":
+          description: Sidecar is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/validate-key:
+    post:
+      operationId: validateKey
+      summary: Online-first key validation with authenticated cache fallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateKeyRequest"
+      responses:
+        "200":
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationEnvelope"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/check-access:
+    post:
+      operationId: checkAccess
+      summary: Cache-first access check with offline grace policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckAccessRequest"
+      responses:
+        "200":
+          description: Access check completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationEnvelope"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+components:
+  schemas:
+    ValidateKeyRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - profileId
+        - licenseKey
+      properties:
+        profileId:
+          type: string
+          description: |
+            Preconfigured profile name that maps to a GatewardenConfig on the
+            sidecar host.
+          example: chat-chronicle-pro
+        licenseKey:
+          type: string
+          minLength: 8
+          description: Raw license key supplied by user
+          example: XXXX-XXXX-XXXX-XXXX
+
+    CheckAccessRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - profileId
+        - licenseKey
+      properties:
+        profileId:
+          type: string
+          example: chat-chronicle-pro
+        licenseKey:
+          type: string
+          minLength: 8
+
+    ValidationEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+        result:
+          $ref: "#/components/schemas/ValidationResult"
+        error:
+          $ref: "#/components/schemas/ErrorObject"
+      examples:
+        valid:
+          value:
+            ok: true
+            result:
+              valid: true
+              state: valid
+              fromCache: false
+              entitlements:
+                - CHAT_CHRONICLE_PRO
+              expiresAt: "2027-01-01T00:00:00Z"
+              code: VALID
+              detail: License is valid
+
+    ValidationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - valid
+        - state
+        - fromCache
+      properties:
+        valid:
+          type: boolean
+        state:
+          type: string
+          enum:
+            - valid
+            - invalid
+            - expired
+            - suspended
+            - revoked
+            - unknown
+        fromCache:
+          type: boolean
+        entitlements:
+          type: array
+          items:
+            type: string
+        code:
+          type: string
+          description: Keygen or Gatewarden classification code
+        detail:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+        - error
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          $ref: "#/components/schemas/ErrorObject"
+
+    ErrorObject:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          enum:
+            - MissingLicense
+            - InvalidLicense
+            - EntitlementMissing
+            - SignatureMissing
+            - SignatureInvalid
+            - DigestMismatch
+            - ResponseTooOld
+            - ResponseFromFuture
+            - CacheExpired
+            - KeygenTransport
+            - ConfigError
+            - ProtocolError
+            - InternalError
+        message:
+          type: string
+        retryable:
+          type: boolean
+          default: false
+
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - version
+        - status
+      properties:
+        name:
+          type: string
+          example: gatewarden-bridge
+        version:
+          type: string
+          example: 0.1.0
+        status:
+          type: string
+          enum: [ok]
+        profiles:
+          type: array
+          items:
+            type: string
+          description: Loaded profile IDs
+
+x-discovery:
+  openapi:
+    wellKnownPath: /.well-known/openapi.json
+  swaggerUi:
+    recommendedPath: /docs

@@ -101,6 +101,15 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Listening on http://{}", addr);
 
+    // Spawn background task to prune stale rate-limiter buckets every 60 seconds.
+    let prune_state = state.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            prune_state.rate_limiter.prune();
+        }
+    });
+
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(|e| anyhow::anyhow!("Cannot bind to {}: {}", addr, e))?;

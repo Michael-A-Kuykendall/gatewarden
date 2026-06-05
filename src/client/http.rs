@@ -107,7 +107,7 @@ impl KeygenClient {
         Ok(Self {
             client,
             user_agent,
-            account_id: config.account_id.to_string(),
+            account_id: config.account_id.clone(),
             host: "api.keygen.sh".to_string(),
             timeout: Duration::from_secs(30),
         })
@@ -223,13 +223,13 @@ mod tests {
 
     fn test_config() -> GatewardenConfig {
         GatewardenConfig {
-            app_name: "shimmy/1.0.0",
-            feature_name: "vision",
-            account_id: "test-account-id",
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
-            required_entitlements: &["vision"],
-            user_agent_product: "shimmy-vision",
-            cache_namespace: "shimmy",
+            app_name: "shimmy/1.0.0".to_string(),
+            feature_name: "vision".to_string(),
+            account_id: "test-account-id".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            required_entitlements: vec!["vision".to_string()],
+            user_agent_product: "shimmy-vision".to_string(),
+            cache_namespace: "shimmy".to_string(),
             offline_grace: Duration::from_secs(86400),
         }
     }
@@ -246,13 +246,13 @@ mod tests {
     #[test]
     fn test_build_user_agent_format() {
         let config = GatewardenConfig {
-            app_name: "myapp/2.0.0",
-            feature_name: "pro",
-            account_id: "acc",
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
-            required_entitlements: &[],
-            user_agent_product: "myproduct",
-            cache_namespace: "myproduct",
+            app_name: "myapp/2.0.0".to_string(),
+            feature_name: "pro".to_string(),
+            account_id: "acc".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            required_entitlements: vec![],
+            user_agent_product: "myproduct".to_string(),
+            cache_namespace: "myproduct".to_string(),
             offline_grace: Duration::from_secs(0),
         };
 

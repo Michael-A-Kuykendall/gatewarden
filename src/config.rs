@@ -6,33 +6,39 @@ use std::time::Duration;
 ///
 /// This struct contains all product-specific settings needed to validate
 /// licenses against Keygen.sh.
+///
+/// # Security note
+/// `account_id` and `public_key_hex` should be embedded in your application at
+/// compile time where possible, not loaded from untrusted environment variables.
+/// The types are `String` so the bridge and serverless deployments can load them
+/// from a secrets store at startup.
 #[derive(Debug, Clone)]
 pub struct GatewardenConfig {
     /// Application name (e.g., "shimmy", "crabcamera")
-    pub app_name: &'static str,
+    pub app_name: String,
 
     /// Feature name (e.g., "vision", "pro")
-    pub feature_name: &'static str,
+    pub feature_name: String,
 
-    /// Keygen account ID (UUID format)
-    /// SECURITY: This should be hard-coded in your application, not from environment.
-    pub account_id: &'static str,
+    /// Keygen account ID (UUID format).
+    /// Embed in your binary; do not load from untrusted user input.
+    pub account_id: String,
 
-    /// Keygen Ed25519 public key (hex-encoded, 64 characters)
-    /// SECURITY: This should be hard-coded in your application, not from environment.
-    pub public_key_hex: &'static str,
+    /// Keygen Ed25519 public key (hex-encoded, 64 characters).
+    /// Embed in your binary; do not load from untrusted user input.
+    pub public_key_hex: String,
 
     /// Required entitlement codes that the license must have.
     /// All codes must be present for access to be granted.
-    pub required_entitlements: &'static [&'static str],
+    pub required_entitlements: Vec<String>,
 
-    /// User-Agent product identifier (e.g., "shimmy-vision")
+    /// User-Agent product identifier (e.g., "shimmy-vision").
     /// Used by Keygen for crack detection analytics.
-    pub user_agent_product: &'static str,
+    pub user_agent_product: String,
 
     /// Cache namespace for storing license data.
     /// Each product should use a unique namespace to avoid collisions.
-    pub cache_namespace: &'static str,
+    pub cache_namespace: String,
 
     /// Grace period for offline operation.
     /// Cached licenses remain valid for this duration after last successful online validation.

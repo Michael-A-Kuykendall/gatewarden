@@ -1,0 +1,34 @@
+name = "gatewarden-bridge"
+main = "bridge-worker.js"
+compatibility_date = "2024-09-23"
+
+# ── Profile config ────────────────────────────────────────────────────────────
+# Add one [vars] entry per product profile.
+# Format: GATEWARDEN_PROFILE_<PROFILE_ID> = '<JSON>'
+#
+# The profile ID is lowercased + hyphens (e.g. MYAPP_PRO → myapp-pro).
+# JSON fields:
+#   accountId           - Your Keygen account UUID (Dashboard > Settings)
+#   publicKeyHex        - Ed25519 verify key (64 hex chars, NOT a secret)
+#   requiredEntitlements - Array of entitlement codes the license must carry
+#   offlineGraceSecs    - How long to serve from cache when Keygen is unreachable (default: 86400)
+#
+# Example:
+# [vars]
+# GATEWARDEN_PROFILE_MYAPP_PRO = '{"accountId":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx","publicKeyHex":"64hexchars","requiredEntitlements":["PRO"],"offlineGraceSecs":86400}'
+
+[vars]
+# Add your profiles here (non-secret config only — keys are never stored here)
+
+# ── KV namespace for offline cache (optional) ─────────────────────────────────
+# If bound, validated licenses are cached here for the offlineGraceSecs period.
+# Create with: wrangler kv namespace create GATEWARDEN_CACHE_KV
+#
+# [[kv_namespaces]]
+# binding = "GATEWARDEN_CACHE_KV"
+# id = "your-kv-namespace-id"
+
+# ── Secrets (set via `wrangler secret put`, NEVER commit values here) ─────────
+# BRIDGE_ACCESS_TOKEN  - Optional shared secret for X-Bridge-Token header auth.
+#                        Protects your Worker URL from unauthorized callers.
+#                        wrangler secret put BRIDGE_ACCESS_TOKEN
