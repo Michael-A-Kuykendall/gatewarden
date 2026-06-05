@@ -75,6 +75,17 @@ async fn main() -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to initialize bridge state: {}", e))??,
     );
 
+    // Log FSE plan stats for each profile
+    for (profile_name, manager) in &state.managers {
+        let plan = manager.fse_plan();
+        tracing::info!(
+            "Profile '{}': {} rules, {} unique selectors",
+            profile_name,
+            plan.rules.len(),
+            plan.selectors.len()
+        );
+    }
+
     // Authenticated sub-router — bearer token + rate limit applied here.
     let authed_token = state.bearer_token.clone();
     let authed_state = state.clone();

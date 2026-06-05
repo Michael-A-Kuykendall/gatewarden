@@ -286,6 +286,11 @@ impl LicenseManager {
     pub fn config(&self) -> &GatewardenConfig {
         &self.config
     }
+
+    /// Get the compiled FSE plan.
+    pub fn fse_plan(&self) -> &CompiledPlan {
+        &self.fse_plan
+    }
 }
 
 #[cfg(test)]
