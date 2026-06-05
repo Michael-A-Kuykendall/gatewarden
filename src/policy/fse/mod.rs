@@ -18,14 +18,21 @@
 
 /// Rule compilation and selector deduplication.
 pub mod compiler;
+/// Default FSE plan compilation for Gatewarden.
+pub mod defaults;
 /// Policy evaluation engine and default rule sets.
 pub mod engine;
+/// Gatewarden-specific FSE input provider.
+pub mod gatewarden_input;
 /// Core data types: selectors, predicates, rules, values, and input.
 pub mod model;
 /// Single-pass execution runtime with early-exit and fail-closed semantics.
 pub mod runtime;
 
+pub use compiler::CompiledPlan;
+pub use defaults::compile_default_plan;
 pub use engine::{evaluate_policy, EvaluationReport};
-pub use model::{EvalInput, Predicate, Rule, RuleDecision, Selector, Value};
+pub use gatewarden_input::GatewardenEvalInput;
+pub use model::{EvalInput, InputProvider, Predicate, Rule, RuleDecision, Selector, Value};
 pub use runtime::RuntimeState;
 pub use runtime::RuleOutcome;

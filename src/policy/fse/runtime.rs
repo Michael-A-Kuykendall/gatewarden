@@ -1,5 +1,5 @@
 use super::compiler::CompiledPlan;
-use super::model::{EvalInput, Predicate, RuleDecision, Selector, Value};
+use super::model::{InputProvider, Predicate, RuleDecision, Selector, Value};
 
 /// A single rule's evaluation outcome.
 #[derive(Debug, Clone)]
@@ -161,7 +161,7 @@ impl RuntimeState {
 ///
 /// After the loop, any still-unresolved required rules are forced to False
 /// (fail-closed semantics).
-pub fn execute(plan: &CompiledPlan, input: &EvalInput) -> RuntimeResult {
+pub fn execute<I: InputProvider>(plan: &CompiledPlan, input: &I) -> RuntimeResult {
     let mut state = RuntimeState::new(plan);
 
     for selector in &plan.selectors {

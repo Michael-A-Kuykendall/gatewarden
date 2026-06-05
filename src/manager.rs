@@ -12,6 +12,10 @@ use crate::clock::{Clock, SystemClock};
 use crate::config::GatewardenConfig;
 use crate::crypto::pipeline::verify_response;
 use crate::policy::access::{check_access_with_usage, UsageCaps};
+use crate::policy::fse::compiler::CompiledPlan;
+use crate::policy::fse::defaults::compile_default_plan;
+use crate::policy::fse::runtime::execute;
+use crate::policy::fse::{GatewardenEvalInput, RuleDecision};
 use crate::protocol::models::{KeygenValidateResponse, LicenseState};
 use crate::GatewardenError;
 use std::sync::Arc;
@@ -41,6 +45,8 @@ pub struct LicenseManager {
     clock: Arc<dyn Clock>,
     client: KeygenClient,
     cache: FileCache,
+    #[allow(dead_code)] // TODO: Used in Task 6 once type mismatch is fixed
+    fse_plan: CompiledPlan,
 }
 
 impl LicenseManager {
@@ -74,12 +80,16 @@ impl LicenseManager {
     ) -> Result<Self, GatewardenError> {
         let client = KeygenClient::new(&config)?;
         let cache = FileCache::new(&config.cache_namespace)?;
+        
+        // Compile default FSE plan
+        let fse_plan = compile_default_plan(&config)?;
 
         Ok(Self {
             config,
             clock,
             client,
             cache,
+            fse_plan,
         })
     }
 
@@ -190,7 +200,22 @@ impl LicenseManager {
 
         let state = LicenseState::from_keygen_response(&keygen_response)?;
 
-        // Check access policy
+        // ─── FSE evaluation ───────────────────────────────────────────
+        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+        let fse_result = execute(&self.fse_plan, &input);
+        
+        if !fse_result.allow {
+            // Log which rule(s) failed for debugging
+            for outcome in &fse_result.outcomes {
+                if outcome.decision == RuleDecision::False {
+                    tracing::warn!("FSE rule failed: {}", outcome.rule_id);
+                }
+            }
+            return Err(GatewardenError::InvalidLicense);
+        }
+        // ──────────────────────────────────────────────────────────────
+
+        // Check access policy (kept for backward compatibility)
         let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
         let caps = check_access_with_usage(
             &state,

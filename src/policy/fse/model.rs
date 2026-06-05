@@ -16,6 +16,14 @@ pub enum Selector {
     Entitlements,
     /// Whether the bridge bearer token was validated.
     BridgeTokenValid,
+    /// License state code from Keygen (e.g., "VALID", "EXPIRED").
+    StateCode,
+    /// Whether the license state is valid (meta.valid).
+    StateValid,
+    /// Whether the license has an expiry date set (presence check).
+    ExpiresAt,
+    /// Usage remaining on the license (future feature, returns Missing for now).
+    UsageRemaining,
 }
 
 /// The check applied to a resolved selector value.
@@ -66,6 +74,15 @@ pub enum Value {
     Missing,
 }
 
+/// Trait for types that can provide values for FSE selectors.
+///
+/// This allows different input types (e.g., `EvalInput`, `GatewardenEvalInput`)
+/// to be used with the FSE runtime.
+pub trait InputProvider {
+    /// Extract the value for a given selector from this input.
+    fn value_for(&self, selector: &Selector) -> Value;
+}
+
 /// The resolution state of a single rule after evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RuleDecision {
@@ -97,6 +114,12 @@ pub struct EvalInput {
 impl EvalInput {
     /// Extract the value for a given selector from this input.
     pub fn value_for(&self, selector: &Selector) -> Value {
+        InputProvider::value_for(self, selector)
+    }
+}
+
+impl InputProvider for EvalInput {
+    fn value_for(&self, selector: &Selector) -> Value {
         match selector {
             Selector::ProfileId => self
                 .profile_id
@@ -120,6 +143,11 @@ impl EvalInput {
                 .bridge_token_valid
                 .map(Value::Bool)
                 .unwrap_or(Value::Missing),
+            // New Gatewarden-specific selectors (handled in gatewarden_input.rs)
+            Selector::StateCode => Value::Missing,
+            Selector::StateValid => Value::Missing,
+            Selector::ExpiresAt => Value::Missing,
+            Selector::UsageRemaining => Value::Missing,
         }
     }
 }
