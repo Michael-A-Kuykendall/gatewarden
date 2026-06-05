@@ -14,7 +14,7 @@ Thank you to all our sponsors!
 **[ZephyrCloudIO](https://github.com/ZephyrCloudIO)** - Corporate Backer (joined December 25th, 2025)
 
 ### Developer Supporters ($25+/month)
-- **Omar McIver**
+*Be the first!*
 
 ### Coffee Heroes ($5+/month)
 - alistairheath
