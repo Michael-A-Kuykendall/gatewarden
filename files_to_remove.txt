@@ -1,0 +1,21 @@
+# Files to remove from git history before public release
+# These files contain development artifacts, internal tooling references, 
+# or are specific to Kiro IDE and should not be in a public repository
+
+# Kiro IDE specific files (not standard for public OSS projects)
+.kiro/specs/gatewarden-v0.2.1/design.md
+.kiro/specs/gatewarden-v0.2.1/requirements.md
+.kiro/specs/gatewarden-v0.2.1/tasks.md
+.kiro/specs/gatewarden-v0.3.0/design.md
+.kiro/specs/gatewarden-v0.3.0/requirements.md
+.kiro/specs/gatewarden-v0.3.0/tasks.md
+.kiro/steering/local-secrets-and-testing.md
+resume_session.prompt.md
+
+# GitHub Copilot specific files (not needed in public repo)
+.github/copilot-instructions.md
+
+# Chat Chronicle skill (Kiro-specific internal tooling)
+.github/skills/chat-chronicle/SKILL.md
+
+# Keep .kiro and .github/skills directories in .gitignore but remove all content
