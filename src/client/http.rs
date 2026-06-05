@@ -226,7 +226,8 @@ mod tests {
             app_name: "shimmy/1.0.0".to_string(),
             feature_name: "vision".to_string(),
             account_id: "test-account-id".to_string(),
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+                .to_string(),
             required_entitlements: vec!["vision".to_string()],
             user_agent_product: "shimmy-vision".to_string(),
             cache_namespace: "shimmy".to_string(),
@@ -249,7 +250,8 @@ mod tests {
             app_name: "myapp/2.0.0".to_string(),
             feature_name: "pro".to_string(),
             account_id: "acc".to_string(),
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+                .to_string(),
             required_entitlements: vec![],
             user_agent_product: "myproduct".to_string(),
             cache_namespace: "myproduct".to_string(),

@@ -276,10 +276,8 @@ fn test_value_broadcast_single_extraction_multiple_rules() {
     ];
 
     let plan = compile_rules(rules);
-    let input = MockInput::new().with_entitlements(vec![
-        "FEATURE_A".to_string(),
-        "FEATURE_B".to_string(),
-    ]);
+    let input =
+        MockInput::new().with_entitlements(vec!["FEATURE_A".to_string(), "FEATURE_B".to_string()]);
 
     let result = execute(&plan, &input);
 
@@ -415,10 +413,7 @@ fn test_fail_closed_all_required_false_denies_access() {
 
     let result = execute(&plan, &input);
 
-    assert!(
-        !result.allow,
-        "One required rule False must deny access"
-    );
+    assert!(!result.allow, "One required rule False must deny access");
 
     // Verify which rule failed
     let state_outcome = result
@@ -496,9 +491,12 @@ fn test_optional_rules_do_not_affect_allow_decision() {
         .iter()
         .find(|o| o.rule_id == "optional1")
         .unwrap();
-    
+
     assert!(
-        matches!(opt1.decision, RuleDecision::Unresolved | RuleDecision::False),
+        matches!(
+            opt1.decision,
+            RuleDecision::Unresolved | RuleDecision::False
+        ),
         "Optional rule can be Unresolved (early exit) or False, but doesn't block access"
     );
 }
@@ -580,14 +578,8 @@ fn test_new_predicates_exists_compliance() {
     let result_present = execute(&plan, &input_present);
     let result_missing = execute(&plan, &input_missing);
 
-    assert!(
-        result_present.allow,
-        "Exists: present value should pass"
-    );
-    assert!(
-        !result_missing.allow,
-        "Exists: Missing value should fail"
-    );
+    assert!(result_present.allow, "Exists: present value should pass");
+    assert!(!result_missing.allow, "Exists: Missing value should fail");
 }
 
 #[test]
@@ -626,8 +618,5 @@ fn test_new_predicates_in_set_compliance() {
     let result_not_in = execute(&plan, &input_not_in_set);
 
     assert!(result_in.allow, "InSet: value in set should pass");
-    assert!(
-        !result_not_in.allow,
-        "InSet: value not in set should fail"
-    );
+    assert!(!result_not_in.allow, "InSet: value not in set should fail");
 }

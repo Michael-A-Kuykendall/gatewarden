@@ -1,7 +1,7 @@
-use gatewarden::policy::fse::engine::default_security_rules;
-use gatewarden::{evaluate_policy, FseEvalInput as EvalInput};
 use gatewarden::policy::access::check_access_with_usage;
+use gatewarden::policy::fse::engine::default_security_rules;
 use gatewarden::LicenseState;
+use gatewarden::{evaluate_policy, FseEvalInput as EvalInput};
 
 #[derive(Clone)]
 struct Scenario {
@@ -89,7 +89,11 @@ fn legacy_allow(s: &Scenario) -> bool {
         expires_at: None,
         max_uses: s.max_uses,
         current_uses: s.current_uses,
-        code: if s.valid { "VALID".into() } else { "INVALID".into() },
+        code: if s.valid {
+            "VALID".into()
+        } else {
+            "INVALID".into()
+        },
         detail: None,
     };
 

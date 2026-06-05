@@ -87,10 +87,7 @@ impl ProfileConfig {
                 .unwrap_or_else(|| profile_id.to_string()),
             account_id: self.account_id.clone(),
             public_key_hex: self.public_key_hex.clone(),
-            required_entitlements: self
-                .required_entitlements
-                .clone()
-                .unwrap_or_default(),
+            required_entitlements: self.required_entitlements.clone().unwrap_or_default(),
             user_agent_product: self
                 .user_agent_product
                 .clone()
@@ -99,9 +96,7 @@ impl ProfileConfig {
                 .cache_namespace
                 .clone()
                 .unwrap_or_else(|| format!("gatewarden-bridge-{}", profile_id)),
-            offline_grace: Duration::from_secs(
-                self.offline_grace_secs.unwrap_or(86400),
-            ),
+            offline_grace: Duration::from_secs(self.offline_grace_secs.unwrap_or(86400)),
         }
     }
 }

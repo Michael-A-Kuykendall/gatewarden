@@ -34,5 +34,5 @@ pub use defaults::compile_default_plan;
 pub use engine::{evaluate_policy, EvaluationReport};
 pub use gatewarden_input::GatewardenEvalInput;
 pub use model::{EvalInput, InputProvider, Predicate, Rule, RuleDecision, Selector, Value};
-pub use runtime::RuntimeState;
 pub use runtime::RuleOutcome;
+pub use runtime::RuntimeState;

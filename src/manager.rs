@@ -82,7 +82,7 @@ impl LicenseManager {
     ) -> Result<Self, GatewardenError> {
         let client = KeygenClient::new(&config)?;
         let cache = FileCache::new(&config.cache_namespace)?;
-        
+
         // Compile default FSE plan
         let fse_plan = compile_default_plan(&config)?;
 
@@ -157,11 +157,11 @@ impl LicenseManager {
             .map_err(|e| GatewardenError::ProtocolError(format!("Cache parse error: {}", e)))?;
 
         let state = LicenseState::from_keygen_response(&response)?;
-        
+
         // ─── FSE evaluation (check_access cached) ─────────────────────
         let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
         let fse_result = execute(&self.fse_plan, &input);
-        
+
         if !fse_result.allow {
             for outcome in &fse_result.outcomes {
                 if outcome.decision == RuleDecision::False {
@@ -171,8 +171,13 @@ impl LicenseManager {
             return Err(GatewardenError::InvalidLicense);
         }
         // ──────────────────────────────────────────────────────────────
-        
-        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
+
+        let entitlements: Vec<&str> = self
+            .config
+            .required_entitlements
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let caps = check_access_with_usage(
             &state,
             &entitlements,
@@ -196,10 +201,13 @@ impl LicenseManager {
     ) -> Result<ValidationResult, GatewardenError> {
         // Call Keygen with required entitlements in scope
         // This ensures Keygen echoes back the entitlements in the response
-        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
-        let response = self
-            .client
-            .validate_key(license_key, &entitlements)?;
+        let entitlements: Vec<&str> = self
+            .config
+            .required_entitlements
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let response = self.client.validate_key(license_key, &entitlements)?;
 
         // Verify signature, digest, and freshness
         verify_response(&response, &self.config.public_key_hex, self.clock.as_ref())?;
@@ -221,7 +229,7 @@ impl LicenseManager {
         // ─── FSE evaluation ───────────────────────────────────────────
         let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
         let fse_result = execute(&self.fse_plan, &input);
-        
+
         if !fse_result.allow {
             // Log which rule(s) failed for debugging
             for outcome in &fse_result.outcomes {
@@ -234,7 +242,12 @@ impl LicenseManager {
         // ──────────────────────────────────────────────────────────────
 
         // Check access policy (kept for backward compatibility)
-        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
+        let entitlements: Vec<&str> = self
+            .config
+            .required_entitlements
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let caps = check_access_with_usage(
             &state,
             &entitlements,
@@ -292,7 +305,7 @@ impl LicenseManager {
         // ─── FSE evaluation (offline cached) ──────────────────────────
         let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
         let fse_result = execute(&self.fse_plan, &input);
-        
+
         if !fse_result.allow {
             for outcome in &fse_result.outcomes {
                 if outcome.decision == RuleDecision::False {
@@ -304,7 +317,12 @@ impl LicenseManager {
         // ──────────────────────────────────────────────────────────────
 
         // Check access policy
-        let entitlements: Vec<&str> = self.config.required_entitlements.iter().map(|s| s.as_str()).collect();
+        let entitlements: Vec<&str> = self
+            .config
+            .required_entitlements
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let caps = check_access_with_usage(&state, &entitlements, 0)?;
 
         Ok(ValidationResult {
@@ -337,7 +355,8 @@ mod tests {
             app_name: "test-app".to_string(),
             feature_name: "test".to_string(),
             account_id: "test-account".to_string(),
-            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+                .to_string(),
             required_entitlements: vec![],
             user_agent_product: "test-product".to_string(),
             cache_namespace: "gatewarden-test".to_string(),

@@ -1,8 +1,10 @@
-use gatewarden::policy::fse::engine::default_security_rules;
 use gatewarden::policy::fse::compiler::compile_rules;
+use gatewarden::policy::fse::engine::default_security_rules;
 use gatewarden::policy::fse::runtime::execute;
-use gatewarden::{evaluate_policy, FseEvalInput as EvalInput, FsePredicate as Predicate,
-                 FseRule as Rule, FseRuleDecision as RuleDecision, FseSelector as Selector};
+use gatewarden::{
+    evaluate_policy, FseEvalInput as EvalInput, FsePredicate as Predicate, FseRule as Rule,
+    FseRuleDecision as RuleDecision, FseSelector as Selector,
+};
 use proptest::prelude::*;
 
 #[test]
@@ -141,7 +143,10 @@ fn fail_closed_missing_bridge_token_denies_even_when_all_else_passes() {
     };
 
     let report = evaluate_policy(rules, input);
-    assert!(!report.allow, "missing bridge token must deny even if crypto checks pass");
+    assert!(
+        !report.allow,
+        "missing bridge token must deny even if crypto checks pass"
+    );
 }
 
 #[test]
@@ -157,12 +162,18 @@ fn fail_closed_false_bridge_token_overrides_valid_crypto() {
     };
 
     let report = evaluate_policy(rules, input);
-    assert!(!report.allow, "false bridge token must deny regardless of other rule outcomes");
+    assert!(
+        !report.allow,
+        "false bridge token must deny regardless of other rule outcomes"
+    );
     let bridge_outcome = report
         .rule_outcomes
         .iter()
         .find(|(id, _)| id == "bridge.token_valid");
-    assert!(bridge_outcome.is_some(), "bridge.token_valid rule must appear in outcomes");
+    assert!(
+        bridge_outcome.is_some(),
+        "bridge.token_valid rule must appear in outcomes"
+    );
     assert!(
         matches!(bridge_outcome.unwrap().1, RuleDecision::False),
         "bridge.token_valid outcome must be False"
@@ -310,7 +321,10 @@ fn predicate_exists_allows_present_bool() {
     };
 
     let report = evaluate_policy(rules, input);
-    assert!(report.allow, "Exists should allow present bool value, even if false");
+    assert!(
+        report.allow,
+        "Exists should allow present bool value, even if false"
+    );
 }
 
 #[test]
@@ -391,9 +405,7 @@ fn predicate_in_set_denies_missing_value() {
     let rules = vec![Rule {
         id: "response.in_set_check".to_string(),
         selector: Selector::ProfileId,
-        predicate: Predicate::InSet(vec![
-            "chat-chronicle-pro".to_string(),
-        ]),
+        predicate: Predicate::InSet(vec!["chat-chronicle-pro".to_string()]),
         required: true,
     }];
 
@@ -432,36 +444,31 @@ fn arb_selector() -> impl Strategy<Value = Selector> {
 
 fn arb_predicate_for_selector(selector: &Selector) -> impl Strategy<Value = Predicate> {
     match selector {
-        Selector::ProfileId | Selector::StateCode => {
-            prop_oneof![
-                "[a-z]{5,15}".prop_map(Predicate::EqString),
-                Just(Predicate::Exists),
-                proptest::collection::vec("[a-z]{5,15}", 1..5).prop_map(Predicate::InSet),
-            ].boxed()
+        Selector::ProfileId | Selector::StateCode => prop_oneof![
+            "[a-z]{5,15}".prop_map(Predicate::EqString),
+            Just(Predicate::Exists),
+            proptest::collection::vec("[a-z]{5,15}", 1..5).prop_map(Predicate::InSet),
+        ]
+        .boxed(),
+        Selector::SignaturePresent
+        | Selector::DigestMatches
+        | Selector::BridgeTokenValid
+        | Selector::StateValid => {
+            prop_oneof![Just(Predicate::BoolIsTrue), Just(Predicate::Exists),].boxed()
         }
-        Selector::SignaturePresent | Selector::DigestMatches | Selector::BridgeTokenValid | Selector::StateValid => {
-            prop_oneof![
-                Just(Predicate::BoolIsTrue),
-                Just(Predicate::Exists),
-            ].boxed()
-        }
-        Selector::ResponseAgeSeconds | Selector::UsageRemaining => {
-            prop_oneof![
-                any::<u64>().prop_map(Predicate::MaxU64),
-                any::<u64>().prop_map(Predicate::MinU64),
-                Just(Predicate::Exists),
-            ].boxed()
-        }
-        Selector::Entitlements => {
-            prop_oneof![
-                "[A-Z_]{5,20}".prop_map(Predicate::ContainsString),
-                Just(Predicate::Exists),
-                proptest::collection::vec("[A-Z_]{5,20}", 1..5).prop_map(Predicate::InSet),
-            ].boxed()
-        }
-        Selector::ExpiresAt => {
-            Just(Predicate::Exists).boxed()
-        }
+        Selector::ResponseAgeSeconds | Selector::UsageRemaining => prop_oneof![
+            any::<u64>().prop_map(Predicate::MaxU64),
+            any::<u64>().prop_map(Predicate::MinU64),
+            Just(Predicate::Exists),
+        ]
+        .boxed(),
+        Selector::Entitlements => prop_oneof![
+            "[A-Z_]{5,20}".prop_map(Predicate::ContainsString),
+            Just(Predicate::Exists),
+            proptest::collection::vec("[A-Z_]{5,20}", 1..5).prop_map(Predicate::InSet),
+        ]
+        .boxed(),
+        Selector::ExpiresAt => Just(Predicate::Exists).boxed(),
         _ => {
             // Catch-all for future selectors
             Just(Predicate::Exists).boxed()
@@ -954,7 +961,7 @@ proptest! {
         rules in proptest::collection::vec(arb_rule(), 1..50),
     ) {
         let plan = compile_rules(rules.clone());
-        
+
         // Count unique selectors manually
         let mut unique_selectors = std::collections::HashSet::new();
         for rule in &rules {

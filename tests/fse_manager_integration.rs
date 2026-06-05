@@ -6,6 +6,7 @@
 //! 3. FSE evaluation accepts valid licenses
 //! 4. FSE rule failures are logged appropriately
 
+use chrono::{DateTime, Utc};
 use gatewarden::policy::fse::compiler::compile_rules;
 use gatewarden::policy::fse::defaults::compile_default_plan;
 use gatewarden::policy::fse::gatewarden_input::GatewardenEvalInput;
@@ -13,7 +14,6 @@ use gatewarden::policy::fse::model::{Predicate, Rule, RuleDecision, Selector};
 use gatewarden::policy::fse::runtime::execute;
 use gatewarden::protocol::models::LicenseState;
 use gatewarden::GatewardenConfig;
-use chrono::{DateTime, Utc};
 use std::time::Duration;
 
 fn test_config() -> GatewardenConfig {
@@ -251,7 +251,10 @@ fn test_fse_multiple_entitlements() {
     let input = GatewardenEvalInput::from_validated_response(state, true);
     let result = execute(&plan, &input);
 
-    assert!(result.allow, "FSE should accept license with all entitlements");
+    assert!(
+        result.allow,
+        "FSE should accept license with all entitlements"
+    );
 
     // All rules should pass
     for outcome in &result.outcomes {
@@ -289,7 +292,10 @@ fn test_fse_multiple_entitlements_one_missing() {
     let input = GatewardenEvalInput::from_validated_response(state, true);
     let result = execute(&plan, &input);
 
-    assert!(!result.allow, "FSE should reject license missing one entitlement");
+    assert!(
+        !result.allow,
+        "FSE should reject license missing one entitlement"
+    );
 
     // Find which rule failed
     let failed_rules: Vec<&str> = result
@@ -374,7 +380,10 @@ fn test_fse_fail_closed_on_unresolved_required() {
     let result = execute(&plan, &input);
 
     // Should fail closed - unresolved required rule becomes False
-    assert!(!result.allow, "FSE should fail closed on unresolved required rule");
+    assert!(
+        !result.allow,
+        "FSE should fail closed on unresolved required rule"
+    );
 
     // Check the rule outcome
     assert_eq!(result.outcomes.len(), 1);
@@ -395,7 +404,10 @@ fn test_fse_early_exit_not_verified() {
 
     // Even though it may not exit early in this implementation,
     // verify that it correctly rejects
-    assert!(!result.allow, "FSE should reject when signature not verified");
+    assert!(
+        !result.allow,
+        "FSE should reject when signature not verified"
+    );
 
     // The selectors_scanned metric should still be present
     assert!(result.selectors_scanned > 0);

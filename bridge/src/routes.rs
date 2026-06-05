@@ -172,7 +172,9 @@ pub async fn check_access(
             let status = match &e {
                 GatewardenError::CacheTampered
                 | GatewardenError::SignatureInvalid
-                | GatewardenError::SignatureMissing => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                | GatewardenError::SignatureMissing => {
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                }
                 GatewardenError::CacheExpired | GatewardenError::InvalidLicense => {
                     axum::http::StatusCode::OK
                 }
@@ -268,8 +270,8 @@ mod tests {
             app_name: "gatewarden-bridge-test".to_string(),
             feature_name: profile_name.to_string(),
             account_id: format!("acct-{}", profile_name),
-            public_key_hex:
-                "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_string(),
+            public_key_hex: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+                .to_string(),
             required_entitlements: vec![],
             user_agent_product: "gatewarden-bridge-test".to_string(),
             cache_namespace: format!("gatewarden-bridge-test-{}", unique_suffix()),
@@ -405,8 +407,7 @@ mod tests {
             .validate_key("")
             .expect_err("empty key must fail in core");
 
-        let bridge_manager =
-            LicenseManager::new(config).expect("bridge manager should initialize");
+        let bridge_manager = LicenseManager::new(config).expect("bridge manager should initialize");
         let mut managers = HashMap::new();
         managers.insert(profile.to_string(), bridge_manager);
         let state = test_state_no_auth(managers);
@@ -419,12 +420,18 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");
         match rt.block_on(validate_key(State(state), Json(req))) {
             Ok(Json(resp)) => {
-                assert_eq!(status_for_validate_error(&expected), axum::http::StatusCode::OK);
+                assert_eq!(
+                    status_for_validate_error(&expected),
+                    axum::http::StatusCode::OK
+                );
                 assert!(!resp.valid);
                 assert_eq!(resp.state_code, gatewarden_error_code(&expected));
             }
             Err(err) => {
-                assert_ne!(status_for_validate_error(&expected), axum::http::StatusCode::OK);
+                assert_ne!(
+                    status_for_validate_error(&expected),
+                    axum::http::StatusCode::OK
+                );
                 assert_eq!(err.0, status_for_validate_error(&expected));
                 assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
             }
@@ -442,8 +449,7 @@ mod tests {
             .check_access("LICENSE-TEST-1234")
             .expect_err("cache miss should fail in core");
 
-        let bridge_manager =
-            LicenseManager::new(config).expect("bridge manager should initialize");
+        let bridge_manager = LicenseManager::new(config).expect("bridge manager should initialize");
         let mut managers = HashMap::new();
         managers.insert(profile.to_string(), bridge_manager);
         let state = test_state_no_auth(managers);
@@ -456,12 +462,18 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");
         match rt.block_on(check_access(State(state), Json(req))) {
             Ok(Json(resp)) => {
-                assert_eq!(status_for_check_access_error(&expected), axum::http::StatusCode::OK);
+                assert_eq!(
+                    status_for_check_access_error(&expected),
+                    axum::http::StatusCode::OK
+                );
                 assert!(!resp.valid);
                 assert_eq!(resp.state_code, gatewarden_error_code(&expected));
             }
             Err(err) => {
-                assert_ne!(status_for_check_access_error(&expected), axum::http::StatusCode::OK);
+                assert_ne!(
+                    status_for_check_access_error(&expected),
+                    axum::http::StatusCode::OK
+                );
                 assert_eq!(err.0, status_for_check_access_error(&expected));
                 assert_eq!(err.1 .0.code, gatewarden_error_code(&expected));
             }
@@ -475,14 +487,20 @@ mod tests {
         // Directly test the constant_time_eq path: empty header must not match a real token.
         let expected_token = "super-secret";
         let provided = "";
-        assert!(!constant_time_eq_test(provided.as_bytes(), expected_token.as_bytes()));
+        assert!(!constant_time_eq_test(
+            provided.as_bytes(),
+            expected_token.as_bytes()
+        ));
     }
 
     #[tokio::test]
     async fn bearer_token_check_rejects_wrong_value() {
         let expected = "correct-token";
         let wrong = "wrong-token";
-        assert!(!constant_time_eq_test(wrong.as_bytes(), expected.as_bytes()));
+        assert!(!constant_time_eq_test(
+            wrong.as_bytes(),
+            expected.as_bytes()
+        ));
     }
 
     #[tokio::test]

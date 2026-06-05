@@ -168,8 +168,7 @@ mod tests {
         // Manually age the entry past the 60s prune threshold.
         {
             let mut b = limiter.buckets.lock().unwrap();
-            b.get_mut(&ip).unwrap().last_refill =
-                Instant::now() - Duration::from_secs(61);
+            b.get_mut(&ip).unwrap().last_refill = Instant::now() - Duration::from_secs(61);
         }
         limiter.prune();
         assert_eq!(limiter.buckets.lock().unwrap().len(), 0);

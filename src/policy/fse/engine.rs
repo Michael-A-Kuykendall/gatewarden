@@ -69,6 +69,10 @@ pub fn evaluate_policy(rules: Vec<Rule>, input: EvalInput) -> EvaluationReport {
     EvaluationReport {
         allow: runtime.allow,
         selectors_scanned: runtime.selectors_scanned,
-        rule_outcomes: runtime.outcomes.iter().map(|o| (o.rule_id.clone(), o.decision.clone())).collect(),
+        rule_outcomes: runtime
+            .outcomes
+            .iter()
+            .map(|o| (o.rule_id.clone(), o.decision.clone()))
+            .collect(),
     }
 }

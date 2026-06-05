@@ -33,9 +33,7 @@ use crate::GatewardenError;
 /// let plan = compile_default_plan(&config)?;
 /// // plan now has 3 rules: signature_verified, state_valid, entitlements.required_0
 /// ```
-pub fn compile_default_plan(
-    config: &GatewardenConfig,
-) -> Result<CompiledPlan, GatewardenError> {
+pub fn compile_default_plan(config: &GatewardenConfig) -> Result<CompiledPlan, GatewardenError> {
     let mut rules = vec![
         Rule {
             id: "crypto.signature_verified".to_string(),

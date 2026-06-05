@@ -106,9 +106,9 @@ pub use protocol::models::LicenseState;
 pub use clock::MockClock;
 
 // FSE policy engine re-exports (Fse-prefixed to avoid namespace collision)
+pub use policy::fse::engine::{evaluate_policy, EvaluationReport};
 pub use policy::fse::model::{
     EvalInput as FseEvalInput, Predicate as FsePredicate, Rule as FseRule,
     RuleDecision as FseRuleDecision, Selector as FseSelector, Value as FseValue,
 };
 pub use policy::fse::runtime::{RuleOutcome as FseRuleOutcome, RuntimeState as FseRuntimeState};
-pub use policy::fse::engine::{evaluate_policy, EvaluationReport};

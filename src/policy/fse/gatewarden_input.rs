@@ -119,11 +119,17 @@ mod tests {
     fn test_signature_present_selector() {
         let state = sample_valid_state();
         let input = GatewardenEvalInput::from_validated_response(state, true);
-        assert_eq!(input.value_for(&Selector::SignaturePresent), Value::Bool(true));
+        assert_eq!(
+            input.value_for(&Selector::SignaturePresent),
+            Value::Bool(true)
+        );
 
         let state2 = sample_valid_state();
         let input2 = GatewardenEvalInput::from_validated_response(state2, false);
-        assert_eq!(input2.value_for(&Selector::SignaturePresent), Value::Bool(false));
+        assert_eq!(
+            input2.value_for(&Selector::SignaturePresent),
+            Value::Bool(false)
+        );
     }
 
     #[test]
@@ -202,7 +208,10 @@ mod tests {
         // These selectors are not applicable to Gatewarden validation context
         assert_eq!(input.value_for(&Selector::ProfileId), Value::Missing);
         assert_eq!(input.value_for(&Selector::DigestMatches), Value::Missing);
-        assert_eq!(input.value_for(&Selector::ResponseAgeSeconds), Value::Missing);
+        assert_eq!(
+            input.value_for(&Selector::ResponseAgeSeconds),
+            Value::Missing
+        );
         assert_eq!(input.value_for(&Selector::BridgeTokenValid), Value::Missing);
     }
 
@@ -222,7 +231,11 @@ mod tests {
             detail: None,
         };
         let input = GatewardenEvalInput::from_validated_response(state, true);
-        let expected = vec!["ENT_A".to_string(), "ENT_B".to_string(), "ENT_C".to_string()];
+        let expected = vec![
+            "ENT_A".to_string(),
+            "ENT_B".to_string(),
+            "ENT_C".to_string(),
+        ];
         assert_eq!(
             input.value_for(&Selector::Entitlements),
             Value::Strings(expected)
