@@ -169,10 +169,31 @@ This keeps Gatewarden as the single cryptographic source of truth while enabling
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Patent Notice
+**Open Source, Not Open Contribution:** This project does not accept unsolicited pull requests. Please open an issue first to discuss proposed changes.
 
-Gatewarden's policy engine implements Fused Semantic Execution (FSE), a selector-first, single-pass rule evaluation architecture. FSE is the subject of a pending patent by Michael A. Kuykendall. All rights reserved.
+## Patent Notice & Licensing
+
+**MIT License with FSE Patent Restrictions**
+
+Gatewarden is licensed under the MIT License (see [LICENSE](LICENSE)). However, the Fused Semantic Execution (FSE) implementation in `src/policy/fse/` is subject to additional patent license restrictions.
+
+**FSE Patent Status:** Pending patent application by Michael A. Kuykendall. All rights reserved.
+
+### What This Means
+
+✅ **You MAY:**
+- Use Gatewarden for Keygen.sh license validation (its intended purpose)
+- Modify, distribute, and create derivative works of Gatewarden
+- Study the FSE code for educational purposes
+
+❌ **You MAY NOT:**
+- Extract FSE and use it in other projects
+- Reimplement the FSE algorithm for other use cases
+- Create competing products using FSE
+
+**For FSE licensing inquiries:** See [FSE_PATENT_LICENSE.md](FSE_PATENT_LICENSE.md) or contact michaelallenkuykendall@gmail.com
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).  
+FSE Patent Restrictions — see [FSE_PATENT_LICENSE.md](FSE_PATENT_LICENSE.md).

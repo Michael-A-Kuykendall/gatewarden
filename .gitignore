@@ -5,6 +5,14 @@
 .env.*
 .secrets
 
+# Kiro IDE (workspace-local only, not for public repo)
+.kiro/
+resume_session.prompt.md
+
+# GitHub Copilot (development aid, not for public repo)
+.github/copilot-instructions.md
+.github/skills/
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
