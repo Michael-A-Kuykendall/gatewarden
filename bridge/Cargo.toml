@@ -21,7 +21,7 @@ path = "src/main.rs"
 gatewarden = { path = "..", version = "0.3.0" }
 
 # HTTP server
-axum = { version = "0.7", features = ["json"] }
+axum = { version = "0.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.4"
 
