@@ -1,15 +1,11 @@
-# cargo-deny configuration
+# cargo-deny configuration (cargo-deny 0.18+)
 # Run: cargo deny check
 # Install: cargo install cargo-deny
 
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
+ignore = []
 
 [licenses]
-unlicensed = "deny"
 allow = [
     "MIT",
     "Apache-2.0",
@@ -18,8 +14,9 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Unicode-DFS-2016",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
 ]
-copyleft = "deny"
 
 [[licenses.clarify]]
 name = "ring"
@@ -34,4 +31,3 @@ wildcards = "deny"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
