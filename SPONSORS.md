@@ -1,6 +1,6 @@
 # Sponsors
 
-Thank you to all our sponsors!
+Thank you to all our sponsors who help keep Gatewarden free forever!
 
 ## Current Sponsors
 
@@ -19,6 +19,16 @@ Thank you to all our sponsors!
 ### Coffee Heroes ($5+/month)
 - alistairheath
 
+## Why Sponsor?
+
+**Gatewarden is free forever.** No paid tiers, no enterprise upsells, no bait-and-switch.
+
+Your sponsorship helps:
+- Fix bugs faster with dedicated support
+- Improve documentation and examples
+- Add new features
+- Expand test coverage across more platforms
+
 ## Sponsorship Tiers
 
 ### Coffee Heroes - $5/month
@@ -29,18 +39,29 @@ Thank you to all our sponsors!
 ### Developer Supporters - $25/month
 - Everything in Coffee Heroes
 - Priority response to bug reports
-- Name + link in this file
+- Name + link in SPONSORS.md
+- Influence on roadmap priorities
 
 ### Corporate Backers - $100/month
 - Everything in Developer Supporters
-- Company logo in README
-- Company logo in this file
+- Company logo in README (small)
+- Company logo in SPONSORS.md
+- Recognition in release notes
 
 ### Enterprise Partners - $500+/month
 - Everything in Corporate Backers
+- Company logo in README (prominent placement)
 - Monthly 1:1 office hours
 - Direct input on roadmap
+- Early access to new features
+- Custom integration support
 
 ## How to Sponsor
 
 [Become a Sponsor on GitHub](https://github.com/sponsors/Michael-A-Kuykendall)
+
+All sponsorship goes directly to maintaining Gatewarden and keeping it free forever.
+
+## Corporate Sponsorship
+
+For invoiced sponsorship or custom arrangements, email: michaelallenkuykendall@gmail.com
