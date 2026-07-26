@@ -1,4 +1,9 @@
-.PHONY: build test check lint fmt doc clean bridge run-bridge
+.PHONY: build test check lint fmt doc clean bridge run-bridge setup
+
+# ─── Setup ─────────────────────────────────────────────────────────────────────
+
+setup:
+	git config core.hooksPath .githooks
 
 # ─── Build ─────────────────────────────────────────────────────────────────────
 

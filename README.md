@@ -11,6 +11,8 @@
 
 <p align="center"><em>Yes, the logo is a bit much for a license validation library. We're aware.</em></p>
 
+<p align="center"><strong>Languages:</strong> <a href="docs/zh-CN/README.md">简体中文</a> · <a href="docs/zh-TW/README.md">繁體中文</a></p>
+
 <h2 align="center">Hardened <a href="https://keygen.sh">Keygen.sh</a> license validation for Rust.</h2>
 
 **Gatewarden is for developers who use Keygen.sh and want cryptographic assurance—not just HTTP success—that a license validation response is authentic.**
@@ -162,6 +164,34 @@ Security failures are distinguishable from network failures through typed errors
 - Local attackers cannot modify cached validation records
 
 **Philosophy:** Licensing is not a business rule—it is an adversarial interface. Gatewarden treats it accordingly.
+
+## Offline Usage Metering (feature `meter`)
+
+Gatewarden can enforce usage caps **locally and offline** — something Keygen's
+server-side `maxUses` cannot guarantee without connectivity. This is a key
+differentiator. Enable the `meter` cargo feature, then:
+
+```rust
+// Record a local use; returns UsageLimitExceeded when the cap is breached.
+manager.record_use("LICENSE-KEY")?;
+
+// Every validation consults the local meter automatically:
+let result = manager.check_access("LICENSE-KEY")?;
+// result.caps includes max_uses / current_uses / remaining
+```
+
+- The meter is **per-license-keyed** (keyed by the license-key hash).
+- `LicenseManager::record_use(key)` increments, persists, and re-checks the cap.
+- The local monthly count is threaded into `check_access_with_usage`, so every
+  validation respects the local cap even offline.
+- `Selector::UsageRemaining` reports the actual remaining uses.
+- Via the bridge, `POST /v1/record-use` records a use and returns `429`
+  (`USAGE_LIMIT_EXCEEDED`) on breach; validation responses surface usage caps
+  (`usage`: `maxUses`, `currentUses`, `remaining`).
+
+When `meter` is **not** enabled, behavior is unchanged — the API is additive and
+non-breaking. See [docs/QUICKSTART.md](docs/QUICKSTART.md) and the
+`[0.4.2]` entry in [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Examples
 

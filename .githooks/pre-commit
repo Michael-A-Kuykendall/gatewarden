@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Gatewarden pre-commit quality gate.
+# Keeps every commit green: formatting, clippy (deny warnings), and tests.
+set -euo pipefail
+
+echo "🔒 Gatewarden pre-commit: running quality gate..."
+
+cargo fmt --all -- --check
+cargo clippy --workspace --all-features -- -D warnings
+cargo test --workspace --all-features
+
+echo "✅ pre-commit quality gate passed"

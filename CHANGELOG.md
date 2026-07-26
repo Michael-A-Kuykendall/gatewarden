@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gatewarden with the `meter` feature.
 - **Bridge validation responses now surface usage caps** (`usage`: `maxUses`,
   `currentUses`, `remaining`) on both `/v1/validate-key` and `/v1/check-access`.
+- **Chinese documentation.** Simplified (简体中文) and Traditional (繁體中文)
+  README translations under `docs/zh-CN/` and `docs/zh-TW/`, linked from the
+  top of the README.
 
 ### Changed
 
