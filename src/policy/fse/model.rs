@@ -22,7 +22,8 @@ pub enum Selector {
     StateValid,
     /// Whether the license has an expiry date set (presence check).
     ExpiresAt,
-    /// Usage remaining on the license (future feature, returns Missing for now).
+    /// Usage remaining on the license. Wired by the `meter` feature (M5) in `0.4.2`;
+    /// returns `Missing` when the meter feature is disabled or the cap is unknown.
     UsageRemaining,
 }
 

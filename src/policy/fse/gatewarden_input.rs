@@ -16,6 +16,9 @@ pub struct GatewardenEvalInput {
     state: LicenseState,
     /// Whether the response signature was cryptographically verified.
     signature_verified: bool,
+    /// Locally-metered uses for this key (from the `meter` feature), if known.
+    /// Subtracted from `max_uses` when reporting `UsageRemaining`.
+    local_uses: Option<u64>,
 }
 
 impl GatewardenEvalInput {
@@ -25,17 +28,23 @@ impl GatewardenEvalInput {
     ///
     /// * `state` - The normalized license state extracted from Keygen response
     /// * `signature_verified` - Whether the Ed25519 signature was valid
+    /// * `local_uses` - Locally-metered consumption for this key (see `UsageRemaining`)
     ///
     /// # Example
     ///
     /// ```ignore
     /// let state = LicenseState::from_keygen_response(&response)?;
-    /// let input = GatewardenEvalInput::from_validated_response(state, true);
+    /// let input = GatewardenEvalInput::from_validated_response(state, true, None);
     /// ```
-    pub fn from_validated_response(state: LicenseState, signature_verified: bool) -> Self {
+    pub fn from_validated_response(
+        state: LicenseState,
+        signature_verified: bool,
+        local_uses: Option<u64>,
+    ) -> Self {
         Self {
             state,
             signature_verified,
+            local_uses,
         }
     }
 }
@@ -50,7 +59,7 @@ impl InputProvider for GatewardenEvalInput {
     /// - `StateValid` → `state.valid` bool
     /// - `Entitlements` → `state.entitlements` Vec<String>
     /// - `ExpiresAt` → presence check on `state.expires_at`
-    /// - `UsageRemaining` → Missing (future feature)
+    /// - `UsageRemaining` → remaining uses (`max_uses - current_uses - local_uses`); `Missing` if no cap
     fn value_for(&self, selector: &Selector) -> Value {
         match selector {
             Selector::SignaturePresent => Value::Bool(self.signature_verified),
@@ -65,8 +74,15 @@ impl InputProvider for GatewardenEvalInput {
                 }
             }
             Selector::UsageRemaining => {
-                // Future: calculate from max_uses - current_uses if tracking enabled
-                Value::Missing
+                // Remaining uses = max_uses - (Keygen current_uses + local metered uses).
+                match self.state.max_uses {
+                    None => Value::Missing,
+                    Some(limit) => {
+                        let current = self.state.current_uses.unwrap_or(0);
+                        let local = self.local_uses.unwrap_or(0);
+                        Value::U64(limit.saturating_sub(current + local))
+                    }
+                }
             }
             // Other selectors not applicable to Gatewarden validation context
             _ => Value::Missing,
@@ -118,14 +134,14 @@ mod tests {
     #[test]
     fn test_signature_present_selector() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         assert_eq!(
             input.value_for(&Selector::SignaturePresent),
             Value::Bool(true)
         );
 
         let state2 = sample_valid_state();
-        let input2 = GatewardenEvalInput::from_validated_response(state2, false);
+        let input2 = GatewardenEvalInput::from_validated_response(state2, false, None);
         assert_eq!(
             input2.value_for(&Selector::SignaturePresent),
             Value::Bool(false)
@@ -135,14 +151,14 @@ mod tests {
     #[test]
     fn test_state_code_selector() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         assert_eq!(
             input.value_for(&Selector::StateCode),
             Value::String("VALID".to_string())
         );
 
         let expired_state = sample_expired_state();
-        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true);
+        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true, None);
         assert_eq!(
             input2.value_for(&Selector::StateCode),
             Value::String("EXPIRED".to_string())
@@ -152,18 +168,18 @@ mod tests {
     #[test]
     fn test_state_valid_selector() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         assert_eq!(input.value_for(&Selector::StateValid), Value::Bool(true));
 
         let expired_state = sample_expired_state();
-        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true);
+        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true, None);
         assert_eq!(input2.value_for(&Selector::StateValid), Value::Bool(false));
     }
 
     #[test]
     fn test_entitlements_selector() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         let expected = vec!["VISION_ANALYSIS".to_string(), "PREMIUM".to_string()];
         assert_eq!(
             input.value_for(&Selector::Entitlements),
@@ -171,7 +187,7 @@ mod tests {
         );
 
         let expired_state = sample_expired_state();
-        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true);
+        let input2 = GatewardenEvalInput::from_validated_response(expired_state, true, None);
         assert_eq!(
             input2.value_for(&Selector::Entitlements),
             Value::Strings(vec![])
@@ -181,29 +197,29 @@ mod tests {
     #[test]
     fn test_expires_at_selector_present() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         assert_eq!(input.value_for(&Selector::ExpiresAt), Value::Bool(true));
     }
 
     #[test]
     fn test_expires_at_selector_missing() {
         let state = sample_no_expiry_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         assert_eq!(input.value_for(&Selector::ExpiresAt), Value::Missing);
     }
 
     #[test]
     fn test_usage_remaining_selector() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
-        // Future feature - should return Missing for now
-        assert_eq!(input.value_for(&Selector::UsageRemaining), Value::Missing);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
+        // max_uses (1000) - current_uses (42) = 958 remaining (no local metering).
+        assert_eq!(input.value_for(&Selector::UsageRemaining), Value::U64(958));
     }
 
     #[test]
     fn test_other_selectors_return_missing() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
         // These selectors are not applicable to Gatewarden validation context
         assert_eq!(input.value_for(&Selector::ProfileId), Value::Missing);
@@ -230,7 +246,7 @@ mod tests {
             code: "VALID".to_string(),
             detail: None,
         };
-        let input = GatewardenEvalInput::from_validated_response(state, true);
+        let input = GatewardenEvalInput::from_validated_response(state, true, None);
         let expected = vec![
             "ENT_A".to_string(),
             "ENT_B".to_string(),
@@ -245,7 +261,7 @@ mod tests {
     #[test]
     fn test_constructor_captures_state() {
         let state = sample_valid_state();
-        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+        let input = GatewardenEvalInput::from_validated_response(state.clone(), true, None);
 
         // Verify internal state is captured correctly
         assert_eq!(input.state.code, "VALID");

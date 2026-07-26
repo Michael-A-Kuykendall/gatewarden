@@ -71,6 +71,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /v1/record-use:
+    post:
+      operationId: recordUse
+      summary: Record a local usage event (meter feature)
+      description: |
+        Increments the per-key offline usage counter via
+        `LicenseManager::record_use`. Returns `429` with an `USAGE_LIMIT_EXCEEDED`
+        error code when the local cap is reached. Requires the `meter` build
+        feature on the bridge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordUseRequest"
+      responses:
+        "200":
+          description: Use recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordUseResponse"
+        "429":
+          description: Usage limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     ValidateKeyRequest:
@@ -105,6 +140,50 @@ components:
         licenseKey:
           type: string
           minLength: 8
+
+    RecordUseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - profileId
+        - licenseKey
+      properties:
+        profileId:
+          type: string
+          example: chat-chronicle-pro
+        licenseKey:
+          type: string
+          minLength: 8
+
+    RecordUseResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - recorded
+      properties:
+        recorded:
+          type: boolean
+          description: True when the use was recorded (cap not exceeded)
+
+    UsageInfo:
+      type: object
+      additionalProperties: false
+      required:
+        - maxUses
+        - currentUses
+      properties:
+        maxUses:
+          type: integer
+          nullable: true
+          description: Keygen maxUses cap, or null when uncapped
+        currentUses:
+          type: integer
+          nullable: true
+          description: Keygen current uses
+        remaining:
+          type: integer
+          nullable: true
+          description: maxUses - currentUses, or null when unknown
 
     ValidationEnvelope:
       type: object
@@ -157,6 +236,8 @@ components:
           type: array
           items:
             type: string
+        usage:
+          $ref: "#/components/schemas/UsageInfo"
         code:
           type: string
           description: Keygen or Gatewarden classification code

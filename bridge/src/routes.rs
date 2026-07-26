@@ -39,6 +39,9 @@ fn gatewarden_error_code(e: &GatewardenError) -> &'static str {
         GatewardenError::CacheIO(_) => "CACHE_IO_ERROR",
         GatewardenError::ConfigError(_) => "CONFIG_ERROR",
         GatewardenError::ProtocolError(_) => "PROTOCOL_ERROR",
+        // `MeterIO` exists because the bridge always builds gatewarden with the
+        // `meter` feature enabled (see bridge/Cargo.toml).
+        GatewardenError::MeterIO(_) => "METER_IO",
     }
 }
 
@@ -78,6 +81,31 @@ pub struct ValidationResponse {
     pub state_code: String,
     pub expires_at: Option<String>,
     pub entitlements: Vec<String>,
+    /// Usage-cap surface (Keygen `maxUses`/`uses`, when present).
+    pub usage: Option<UsageInfo>,
+}
+
+/// Keygen-side usage cap surface returned alongside a validation result.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageInfo {
+    pub max_uses: Option<u64>,
+    pub current_uses: Option<u64>,
+    /// `max_uses - current_uses`, or `None` when the cap is unknown.
+    pub remaining: Option<u64>,
+}
+
+/// Build the `UsageInfo` surface from the manager's usage caps.
+fn usage_info(caps: &gatewarden::UsageCaps) -> Option<UsageInfo> {
+    let remaining = match (caps.max_uses, caps.current_uses) {
+        (Some(max), Some(cur)) => Some(max.saturating_sub(cur)),
+        _ => None,
+    };
+    Some(UsageInfo {
+        max_uses: caps.max_uses,
+        current_uses: caps.current_uses,
+        remaining,
+    })
 }
 
 pub async fn validate_key(
@@ -101,6 +129,7 @@ pub async fn validate_key(
             state_code: result.state.code.clone(),
             expires_at: result.state.expires_at.map(|d| d.to_rfc3339()),
             entitlements: result.state.entitlements.clone(),
+            usage: usage_info(&result.caps),
         })),
         Err(e) => {
             // Security errors and config errors are 500; license logic errors are 200
@@ -123,6 +152,7 @@ pub async fn validate_key(
                     state_code: gatewarden_error_code(&e).to_string(),
                     expires_at: None,
                     entitlements: vec![],
+                    usage: None,
                 }));
             }
             Err((
@@ -166,6 +196,7 @@ pub async fn check_access(
             state_code: result.state.code.clone(),
             expires_at: result.state.expires_at.map(|d| d.to_rfc3339()),
             entitlements: result.state.entitlements.clone(),
+            usage: usage_info(&result.caps),
         })),
         Err(e) => {
             let status = match &e {
@@ -186,8 +217,61 @@ pub async fn check_access(
                     state_code: gatewarden_error_code(&e).to_string(),
                     expires_at: None,
                     entitlements: vec![],
+                    usage: None,
                 }));
             }
+            Err((
+                status,
+                Json(ErrorEnvelope {
+                    error: e.to_string(),
+                    code: gatewarden_error_code(&e).to_string(),
+                }),
+            ))
+        }
+    }
+}
+
+// ─── POST /v1/record-use ─────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordUseRequest {
+    pub profile_id: String,
+    pub license_key: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordUseResponse {
+    /// `true` if the use was recorded (cap not exceeded).
+    pub recorded: bool,
+}
+
+/// Record a single local use of `license_key` via `LicenseManager::record_use`.
+///
+/// Returns `429` (`USAGE_LIMIT_EXCEEDED`) when the offline cap is hit. This is
+/// the bridge surface for Gatewarden's `meter` feature.
+pub async fn record_use(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RecordUseRequest>,
+) -> Result<Json<RecordUseResponse>, (axum::http::StatusCode, Json<ErrorEnvelope>)> {
+    let manager = state.managers.get(&req.profile_id).ok_or_else(|| {
+        (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(ErrorEnvelope {
+                error: format!("Profile '{}' not found", req.profile_id),
+                code: "PROFILE_NOT_FOUND".to_string(),
+            }),
+        )
+    })?;
+
+    match task::block_in_place(|| manager.record_use(&req.license_key)) {
+        Ok(()) => Ok(Json(RecordUseResponse { recorded: true })),
+        Err(e) => {
+            let status = match &e {
+                GatewardenError::UsageLimitExceeded => axum::http::StatusCode::TOO_MANY_REQUESTS,
+                _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            };
             Err((
                 status,
                 Json(ErrorEnvelope {
@@ -396,6 +480,26 @@ mod tests {
         assert!(text.contains("/v1/health"));
         assert!(text.contains("/v1/validate-key"));
         assert!(text.contains("/v1/check-access"));
+        assert!(text.contains("/v1/record-use"));
+    }
+
+    #[tokio::test]
+    async fn record_use_unknown_profile_returns_stable_error_code() {
+        let state = test_state_no_auth(HashMap::new());
+
+        let req = RecordUseRequest {
+            profile_id: "missing-profile".to_string(),
+            license_key: "XXXX-XXXX".to_string(),
+        };
+
+        let err = match record_use(State(state), Json(req)).await {
+            Err(err) => err,
+            Ok(_) => panic!("missing profile should error"),
+        };
+
+        assert_eq!(err.0, axum::http::StatusCode::NOT_FOUND);
+        assert_eq!(err.1 .0.code, "PROFILE_NOT_FOUND");
+        assert!(err.1 .0.error.contains("missing-profile"));
     }
 
     #[test]

@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "gatewarden"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "base64 0.23.0",
  "chrono",
@@ -530,7 +530,7 @@ dependencies = [
 
 [[package]]
 name = "gatewarden-bridge"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "axum",

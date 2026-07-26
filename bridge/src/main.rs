@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/health", get(routes::health))
         .route("/v1/validate-key", post(routes::validate_key))
         .route("/v1/check-access", post(routes::check_access))
+        .route("/v1/record-use", post(routes::record_use))
         .layer(middleware::from_fn(move |headers, req, next| {
             let token = authed_token.clone();
             auth::require_bearer_token(headers, token, req, next)

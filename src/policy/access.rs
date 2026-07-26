@@ -49,7 +49,7 @@ pub fn check_access(
 #[derive(Debug, Clone)]
 pub struct UsageCaps {
     /// Usage limit (None = unlimited). Period semantics are consumer-defined.
-    pub monthly_limit: Option<u64>,
+    pub max_uses: Option<u64>,
 
     /// Current usage count from Keygen.
     pub current_uses: Option<u64>,
@@ -59,7 +59,7 @@ impl UsageCaps {
     /// Extract caps from license state.
     pub fn from_license_state(state: &LicenseState) -> Self {
         Self {
-            monthly_limit: state.max_uses,
+            max_uses: state.max_uses,
             current_uses: state.current_uses,
         }
     }
@@ -73,7 +73,7 @@ impl UsageCaps {
     /// * `true` - Within cap or no cap
     /// * `false` - Would exceed cap
     pub fn allows_usage(&self, additional_uses: u64) -> bool {
-        match (self.monthly_limit, self.current_uses) {
+        match (self.max_uses, self.current_uses) {
             (Some(limit), Some(current)) => current + additional_uses <= limit,
             (Some(limit), None) => additional_uses <= limit,
             (None, _) => true, // No limit
@@ -82,7 +82,7 @@ impl UsageCaps {
 
     /// Check if any cap exists.
     pub fn has_cap(&self) -> bool {
-        self.monthly_limit.is_some()
+        self.max_uses.is_some()
     }
 }
 

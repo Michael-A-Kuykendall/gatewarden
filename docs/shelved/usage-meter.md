@@ -1,8 +1,9 @@
 # Shelved Feature: Client-Side Usage Meter
 
-**Status:** Shelved (removed from the build, preserved here for future revival)
+**Status:** Revived in v0.4.2 (per-license-keyed, feature-gated behind `meter`)
 **Removed in:** v0.4.0
-**Last commit containing the full source:** `b6c49071c8579ea477b309c016cfb68e33d501bb`
+**Revived in:** v0.4.2
+**Last commit containing the original (per-namespace) source:** `b6c49071c8579ea477b309c016cfb68e33d501bb`
 
 ---
 

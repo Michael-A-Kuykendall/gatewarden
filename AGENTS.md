@@ -41,16 +41,23 @@ enforced locally even offline") — a real differentiator vs. Keygen's server-si
   (gated); wire `UsageRemaining` (M5); bridge `/v1/record-use` + surface caps (M6).
 
 **CRITICAL — current working-tree state (do not delete!):**
-There is a PARTIAL, UNCOMMITTED, UNWIRED per-license meter implementation already in
-the tree: `src/meter/{mod,usage}.rs` (cfg(feature = "meter")) and a `meter = []`
-feature in `Cargo.toml`. It is **not** wired yet — `src/lib.rs` lacks
-`pub mod meter;`, `manager.rs` lacks `record_use`, `MeterIO` is not restored, so it
-will not compile as-is. **This is the in-progress revival. Adopt and wire it via
-M1–M4; never delete it again** (that is how context was lost last time).
+The offline usage meter is **revived and wired as of v0.4.2** (per-license-keyed,
+feature-gated behind `meter`). It is no longer the old "unwired partial":
+- `src/meter/{mod,usage}.rs` exist and are wired via `pub mod meter;` in
+  `src/lib.rs` (cfg `meter`), re-exporting `UsageMeter`.
+- `LicenseManager::record_use(key)` exists; local monthly count is threaded into
+  `check_access_with_usage` (replacing the old `additional_uses: 0` no-op).
+- `GatewardenError::MeterIO` is restored (gated behind `meter`).
+- `Selector::UsageRemaining` reports the actual remaining uses.
+- Bridge exposes `POST /v1/record-use` and surfaces usage caps on validate/check.
 
-**Cross-session references:** `docs/shelved/usage-meter.md` (original recovery
-instructions), `gatewarden-sessions-combined.md` (full transcript of the meter saga
-+ how context got lost), beads `gatewarden-a1p` M1–M8.
+**Do NOT delete or re-shelve this subsystem.** It was lost once by being deleted
+as "unwired dead code"; it is now wired. See CHANGELOG `[0.4.2]` and
+`docs/shelved/usage-meter.md` (status: revived).
+
+**Cross-session references:** `docs/shelved/usage-meter.md` (recovery + revival
+notes), `gatewarden-sessions-combined.md` (full transcript of the meter saga +
+how context got lost), beads `gatewarden-a1p` M1–M8.
 
 ## Landing the Plane (Session Completion)
 

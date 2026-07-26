@@ -88,6 +88,10 @@ pub mod policy;
 // Manager (main public API)
 pub mod manager;
 
+// Usage metering (behind the `meter` feature)
+#[cfg(feature = "meter")]
+pub mod meter;
+
 // Re-exports for public API
 pub use clock::{Clock, SystemClock};
 pub use config::GatewardenConfig;
@@ -95,6 +99,10 @@ pub use errors::GatewardenError;
 pub use manager::{LicenseManager, ValidationResult};
 pub use policy::access::UsageCaps;
 pub use protocol::models::LicenseState;
+
+// Metering surface (behind the `meter` feature)
+#[cfg(feature = "meter")]
+pub use meter::UsageMeter;
 
 #[cfg(any(test, feature = "test-seams"))]
 pub use clock::MockClock;

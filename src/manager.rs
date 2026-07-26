@@ -3,7 +3,10 @@
 //! The `LicenseManager` provides a simple interface for license validation:
 //! - Online validation with signature verification
 //! - Offline fallback with authenticated cache
-//! - Usage tracking and cap enforcement
+//! - Server-side usage cap enforcement (Keygen `maxUses`)
+//!
+//! Local, offline-enforceable usage metering is available behind the `meter`
+//! feature via `LicenseManager::record_use` (see the `0.4.2` release).
 
 use crate::cache::file::{hash_license_key, FileCache};
 use crate::cache::format::CacheRecord;
@@ -11,6 +14,8 @@ use crate::client::http::KeygenClient;
 use crate::clock::{Clock, SystemClock};
 use crate::config::GatewardenConfig;
 use crate::crypto::pipeline::verify_response;
+#[cfg(feature = "meter")]
+use crate::meter::UsageMeter;
 use crate::policy::access::{check_access_with_usage, UsageCaps};
 use crate::policy::fse::compiler::CompiledPlan;
 use crate::policy::fse::defaults::compile_default_plan;
@@ -19,6 +24,8 @@ use crate::policy::fse::{GatewardenEvalInput, RuleDecision};
 use crate::protocol::models::{KeygenValidateResponse, LicenseState};
 use crate::GatewardenError;
 use std::sync::Arc;
+#[cfg(feature = "meter")]
+use std::sync::Mutex;
 
 /// License validation result.
 #[derive(Debug, Clone)]
@@ -49,6 +56,9 @@ pub struct LicenseManager {
     client: KeygenClient,
     cache: FileCache,
     fse_plan: CompiledPlan,
+    /// Local, offline-enforceable usage meter (only with the `meter` feature).
+    #[cfg(feature = "meter")]
+    meter: Mutex<Option<UsageMeter>>,
 }
 
 impl LicenseManager {
@@ -86,12 +96,18 @@ impl LicenseManager {
         // Compile default FSE plan
         let fse_plan = compile_default_plan(&config)?;
 
+        // Set up the local usage meter when the feature is enabled.
+        #[cfg(feature = "meter")]
+        let meter = UsageMeter::with_namespace(&config.cache_namespace).ok();
+
         Ok(Self {
             config,
             clock,
             client,
             cache,
             fse_plan,
+            #[cfg(feature = "meter")]
+            meter: Mutex::new(meter),
         })
     }
 
@@ -154,7 +170,7 @@ impl LicenseManager {
 
         // Parse cached response and enforce policy
         let state = self.parse_cached_state(&record)?;
-        let (caps, selectors_scanned) = self.enforce_policy(&state, "check_access")?;
+        let (caps, selectors_scanned) = self.enforce_policy(&state, "check_access", &key_hash)?;
 
         Ok(ValidationResult {
             valid: state.valid,
@@ -176,12 +192,19 @@ impl LicenseManager {
     ///
     /// Returns the usage caps and the number of FSE selectors scanned on success.
     /// `context` is used only for diagnostic logging of failed rules.
+    /// `key_hash` identifies the license key so locally-metered consumption can be
+    /// folded into the usage cap check (when the `meter` feature is enabled).
     fn enforce_policy(
         &self,
         state: &LicenseState,
         context: &str,
+        key_hash: &str,
     ) -> Result<(UsageCaps, usize), GatewardenError> {
-        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
+        let input = GatewardenEvalInput::from_validated_response(
+            state.clone(),
+            true,
+            Some(self.meter_monthly_count(key_hash)),
+        );
         let fse_result = execute(&self.fse_plan, &input);
 
         if !fse_result.allow {
@@ -199,9 +222,31 @@ impl LicenseManager {
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let caps = check_access_with_usage(state, &entitlements, 0)?;
+        let additional_uses = self.meter_monthly_count(key_hash);
+        let caps = check_access_with_usage(state, &entitlements, additional_uses)?;
 
         Ok((caps, fse_result.selectors_scanned))
+    }
+
+    /// Current locally-metered monthly count for `key_hash`.
+    ///
+    /// Returns 0 when the `meter` feature is disabled or no meter is available.
+    #[cfg(feature = "meter")]
+    fn meter_monthly_count(&self, key_hash: &str) -> u64 {
+        self.meter
+            .lock()
+            .ok()
+            .and_then(|g| {
+                g.as_ref()
+                    .map(|m| m.monthly_count(key_hash, self.clock.as_ref()))
+            })
+            .unwrap_or(0)
+    }
+
+    /// Non-meter build: no local meter, so always 0.
+    #[cfg(not(feature = "meter"))]
+    fn meter_monthly_count(&self, _key_hash: &str) -> u64 {
+        0
     }
 
     /// Online validation with Keygen API.
@@ -236,7 +281,7 @@ impl LicenseManager {
             .map_err(|e| GatewardenError::ProtocolError(format!("Parse error: {}", e)))?;
 
         let state = LicenseState::from_keygen_response(&keygen_response)?;
-        let (caps, selectors_scanned) = self.enforce_policy(&state, "validate_online")?;
+        let (caps, selectors_scanned) = self.enforce_policy(&state, "validate_online", key_hash)?;
 
         // Cache successful validation
         let cache_record = CacheRecord::new(
@@ -282,7 +327,8 @@ impl LicenseManager {
 
         // Parse cached response and enforce policy
         let state = self.parse_cached_state(&record)?;
-        let (caps, selectors_scanned) = self.enforce_policy(&state, "validate_offline")?;
+        let (caps, selectors_scanned) =
+            self.enforce_policy(&state, "validate_offline", key_hash)?;
 
         Ok(ValidationResult {
             valid: state.valid,
@@ -301,6 +347,50 @@ impl LicenseManager {
     /// Get the compiled FSE plan.
     pub fn fse_plan(&self) -> &CompiledPlan {
         &self.fse_plan
+    }
+
+    /// Record one local use of `license_key`, persist it, and re-check the cap.
+    ///
+    /// This is the entry point for Gatewarden's **offline-enforceable usage
+    /// metering** (the `meter` feature). It increments a per-license-key counter
+    /// on disk and, if the locally tracked monthly count would exceed the
+    /// Keygen `maxUses` cap, returns [`GatewardenError::UsageLimitExceeded`].
+    ///
+    /// Enforcement works without contacting Keygen, so a client is bounded even
+    /// while offline. If no authenticated cache entry (and thus no cap) exists
+    /// for the key, the use is still recorded but not capped locally.
+    #[cfg(feature = "meter")]
+    pub fn record_use(&self, license_key: &str) -> Result<(), GatewardenError> {
+        let key_hash = hash_license_key(license_key);
+
+        // Pre-check against the cached Keygen cap before incrementing.
+        if let Some(record) = self.cache.load(&key_hash)? {
+            if record
+                .verify(
+                    &self.config.public_key_hex,
+                    self.config.offline_grace,
+                    self.clock.as_ref(),
+                )
+                .is_ok()
+            {
+                if let Ok(state) = self.parse_cached_state(&record) {
+                    let caps = UsageCaps::from_license_state(&state);
+                    let projected = self.meter_monthly_count(&key_hash) + 1;
+                    if !caps.allows_usage(projected) {
+                        return Err(GatewardenError::UsageLimitExceeded);
+                    }
+                }
+            }
+        }
+
+        let mut guard = self
+            .meter
+            .lock()
+            .map_err(|_| GatewardenError::MeterIO("usage meter lock poisoned".to_string()))?;
+        let meter = guard
+            .as_mut()
+            .ok_or_else(|| GatewardenError::MeterIO("usage meter unavailable".to_string()))?;
+        meter.increment(&key_hash, self.clock.as_ref())
     }
 }
 

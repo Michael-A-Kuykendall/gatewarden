@@ -5,6 +5,34 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-07-26
+
+### Added
+
+- **Offline usage metering revived (feature `meter`).** The client-side,
+  offline-enforceable usage cap is back, reworked per the 0.4.2 plan:
+  - **Per-license-keyed meter** (`src/meter/`), keyed by the license-key hash
+    (the original 0.4.0 design was per-namespace).
+  - `LicenseManager::record_use(key)` increments the local meter, persists it,
+    and re-checks the cap — returning `UsageLimitExceeded` when the local count
+    would exceed the Keygen `maxUses`. Enforced locally even when offline.
+  - Local monthly count is now threaded into `check_access_with_usage` (the old
+    `additional_uses: 0` no-op is gone), so every validation respects the local
+    cap.
+  - `GatewardenError::MeterIO` restored (gated behind `meter`).
+  - `Selector::UsageRemaining` now reports the actual remaining uses
+    (`max_uses - current_uses - local_metered`) instead of `Missing`.
+- **Bridge: `POST /v1/record-use`** records a local use via `record_use` and
+  returns `429` (`USAGE_LIMIT_EXCEEDED`) on cap breach. The bridge now builds
+  gatewarden with the `meter` feature.
+- **Bridge validation responses now surface usage caps** (`usage`: `maxUses`,
+  `currentUses`, `remaining`) on both `/v1/validate-key` and `/v1/check-access`.
+
+### Changed
+
+- `UsageCaps.monthly_limit` renamed to `max_uses` to align with Keygen's
+  `maxUses` terminology (breaking for direct consumers of the struct).
+
 ## [0.4.1] - 2026-07-26
 
 ### Security

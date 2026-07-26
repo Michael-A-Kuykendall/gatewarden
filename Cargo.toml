@@ -1,6 +1,6 @@
 [package]
 name = "gatewarden"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 authors = ["Michael A. Kuykendall <michaelallenkuykendall@gmail.com>"]
 description = "Hardened Keygen.sh license validation infrastructure"
@@ -54,3 +54,4 @@ proptest = "1"
 [features]
 default = []
 test-seams = []  # Expose clock injection for integration tests
+meter = []      # Local, offline-enforceable usage metering (LicenseManager::record_use)

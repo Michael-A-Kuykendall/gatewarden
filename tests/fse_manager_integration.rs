@@ -102,7 +102,7 @@ fn test_fse_accepts_valid_license() {
     let plan = compile_default_plan(&config).unwrap();
 
     let state = valid_license_state();
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result = execute(&plan, &input);
 
@@ -126,7 +126,7 @@ fn test_fse_rejects_invalid_license_state() {
     let plan = compile_default_plan(&config).unwrap();
 
     let state = invalid_license_state();
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result = execute(&plan, &input);
 
@@ -151,7 +151,7 @@ fn test_fse_rejects_expired_license() {
     let plan = compile_default_plan(&config).unwrap();
 
     let state = expired_license_state();
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result = execute(&plan, &input);
 
@@ -175,7 +175,7 @@ fn test_fse_rejects_missing_entitlement() {
     let plan = compile_default_plan(&config).unwrap();
 
     let state = missing_entitlement_state();
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result = execute(&plan, &input);
 
@@ -203,7 +203,7 @@ fn test_fse_rejects_unsigned_response() {
 
     let state = valid_license_state();
     // signature_verified = false
-    let input = GatewardenEvalInput::from_validated_response(state, false);
+    let input = GatewardenEvalInput::from_validated_response(state, false, None);
 
     let result = execute(&plan, &input);
 
@@ -248,7 +248,7 @@ fn test_fse_multiple_entitlements() {
         detail: None,
     };
 
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
     let result = execute(&plan, &input);
 
     assert!(
@@ -289,7 +289,7 @@ fn test_fse_multiple_entitlements_one_missing() {
         detail: None,
     };
 
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
     let result = execute(&plan, &input);
 
     assert!(
@@ -348,7 +348,7 @@ fn test_fse_selectors_scanned_constant_with_shared_selectors() {
         detail: None,
     };
 
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result1 = execute(&plan1, &input.clone());
     let result2 = execute(&plan2, &input);
@@ -373,9 +373,12 @@ fn test_fse_fail_closed_on_unresolved_required() {
 
     let plan = compile_rules(rules);
 
-    // Input that returns Missing for UsageRemaining
-    let state = valid_license_state();
-    let input = GatewardenEvalInput::from_validated_response(state, true);
+    // Input with no usage cap → UsageRemaining is genuinely Missing (unresolved),
+    // so a required rule on it must fail closed.
+    let mut state = valid_license_state();
+    state.max_uses = None;
+    state.current_uses = None;
+    let input = GatewardenEvalInput::from_validated_response(state, true, None);
 
     let result = execute(&plan, &input);
 
@@ -398,7 +401,7 @@ fn test_fse_early_exit_not_verified() {
 
     let state = valid_license_state();
     // signature_verified = false → should trigger early exit
-    let input = GatewardenEvalInput::from_validated_response(state, false);
+    let input = GatewardenEvalInput::from_validated_response(state, false, None);
 
     let result = execute(&plan, &input);
 
