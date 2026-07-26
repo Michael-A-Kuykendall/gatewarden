@@ -44,7 +44,7 @@ jobs:
       run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
 
     - name: 🎉 Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v3
       with:
         body_path: CHANGELOG.md
         draft: false
