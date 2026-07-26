@@ -12,7 +12,7 @@ bd close <id>         # Complete work
 bd sync               # Sync with git
 ```
 
-## Active Feature Context: Offline Usage Metering (target: 0.4.3)
+## Active Feature Context: Offline Usage Metering (target: 0.4.2)
 
 This is the **headline feature in progress**. Read this before touching anything
 under `src/meter/`, `Cargo.toml`'s `meter` feature, `LicenseManager`, or the
@@ -28,7 +28,7 @@ enforced locally even offline") — a real differentiator vs. Keygen's server-si
   release. That was a conscious decision, documented in `docs/shelved/usage-meter.md`
   and CHANGELOG 0.4.0 "Removed (breaking)". It was NEVER a bug.
 - v0.4.1 shipped successfully (see its CHANGELOG).
-- 0.4.3 revives the meter **properly**, wired into the public API and the enforcement path.
+- 0.4.2 revives the meter **properly**, wired into the public API and the enforcement path.
 
 **Agreed design:**
 - Gated behind a new cargo feature `meter` (non-breaking, additive API).
