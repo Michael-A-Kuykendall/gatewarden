@@ -27,7 +27,7 @@ fn gatewarden_error_code(e: &GatewardenError) -> &'static str {
         GatewardenError::MissingLicense => "MISSING_LICENSE",
         GatewardenError::InvalidLicense => "INVALID_LICENSE",
         GatewardenError::EntitlementMissing { .. } => "ENTITLEMENT_MISSING",
-        GatewardenError::UsageLimitExceeded { .. } => "USAGE_LIMIT_EXCEEDED",
+        GatewardenError::UsageLimitExceeded => "USAGE_LIMIT_EXCEEDED",
         GatewardenError::SignatureInvalid => "SIGNATURE_INVALID",
         GatewardenError::SignatureMissing => "SIGNATURE_MISSING",
         GatewardenError::DigestMismatch => "DIGEST_MISMATCH",
@@ -37,7 +37,6 @@ fn gatewarden_error_code(e: &GatewardenError) -> &'static str {
         GatewardenError::CacheExpired => "CACHE_EXPIRED",
         GatewardenError::KeygenTransport(_) => "TRANSPORT_ERROR",
         GatewardenError::CacheIO(_) => "CACHE_IO_ERROR",
-        GatewardenError::MeterIO(_) => "METER_IO_ERROR",
         GatewardenError::ConfigError(_) => "CONFIG_ERROR",
         GatewardenError::ProtocolError(_) => "PROTOCOL_ERROR",
     }

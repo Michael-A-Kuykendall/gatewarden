@@ -17,7 +17,8 @@ Thank you to all our sponsors who help keep Gatewarden free forever!
 *Be the first!*
 
 ### Coffee Heroes ($5+/month)
-- alistairheath
+- **[gqf2008](https://github.com/gqf2008)** (高庆丰)
+- **[alistairheath](https://github.com/alistairheath)**
 
 ## Why Sponsor?
 

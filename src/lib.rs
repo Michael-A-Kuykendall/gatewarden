@@ -82,17 +82,11 @@ pub mod client;
 // Cache layer
 pub mod cache;
 
-// Metering layer
-pub mod meter;
-
 // Policy layer
 pub mod policy;
 
 // Manager (main public API)
 pub mod manager;
-
-// Optional integrations
-pub mod integrations;
 
 // Re-exports for public API
 pub use clock::{Clock, SystemClock};

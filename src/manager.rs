@@ -152,25 +152,46 @@ impl LicenseManager {
             self.clock.as_ref(),
         )?;
 
-        // Parse cached response
+        // Parse cached response and enforce policy
+        let state = self.parse_cached_state(&record)?;
+        let (caps, selectors_scanned) = self.enforce_policy(&state, "check_access")?;
+
+        Ok(ValidationResult {
+            valid: state.valid,
+            state,
+            caps,
+            from_cache: true,
+            selectors_scanned,
+        })
+    }
+
+    /// Parse a cached record's body into a normalized license state.
+    fn parse_cached_state(&self, record: &CacheRecord) -> Result<LicenseState, GatewardenError> {
         let response: KeygenValidateResponse = serde_json::from_str(record.body())
             .map_err(|e| GatewardenError::ProtocolError(format!("Cache parse error: {}", e)))?;
+        LicenseState::from_keygen_response(&response)
+    }
 
-        let state = LicenseState::from_keygen_response(&response)?;
-
-        // ─── FSE evaluation (check_access cached) ─────────────────────
+    /// Run the FSE policy engine and entitlement/usage checks against a state.
+    ///
+    /// Returns the usage caps and the number of FSE selectors scanned on success.
+    /// `context` is used only for diagnostic logging of failed rules.
+    fn enforce_policy(
+        &self,
+        state: &LicenseState,
+        context: &str,
+    ) -> Result<(UsageCaps, usize), GatewardenError> {
         let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
         let fse_result = execute(&self.fse_plan, &input);
 
         if !fse_result.allow {
             for outcome in &fse_result.outcomes {
                 if outcome.decision == RuleDecision::False {
-                    tracing::warn!("FSE rule failed (check_access): {}", outcome.rule_id);
+                    tracing::warn!("FSE rule failed ({context}): {}", outcome.rule_id);
                 }
             }
             return Err(GatewardenError::InvalidLicense);
         }
-        // ──────────────────────────────────────────────────────────────
 
         let entitlements: Vec<&str> = self
             .config
@@ -178,19 +199,9 @@ impl LicenseManager {
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let caps = check_access_with_usage(
-            &state,
-            &entitlements,
-            0, // No new usage
-        )?;
+        let caps = check_access_with_usage(state, &entitlements, 0)?;
 
-        Ok(ValidationResult {
-            valid: state.valid,
-            state,
-            caps,
-            from_cache: true,
-            selectors_scanned: fse_result.selectors_scanned,
-        })
+        Ok((caps, fse_result.selectors_scanned))
     }
 
     /// Online validation with Keygen API.
@@ -225,34 +236,7 @@ impl LicenseManager {
             .map_err(|e| GatewardenError::ProtocolError(format!("Parse error: {}", e)))?;
 
         let state = LicenseState::from_keygen_response(&keygen_response)?;
-
-        // ─── FSE evaluation ───────────────────────────────────────────
-        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
-        let fse_result = execute(&self.fse_plan, &input);
-
-        if !fse_result.allow {
-            // Log which rule(s) failed for debugging
-            for outcome in &fse_result.outcomes {
-                if outcome.decision == RuleDecision::False {
-                    tracing::warn!("FSE rule failed: {}", outcome.rule_id);
-                }
-            }
-            return Err(GatewardenError::InvalidLicense);
-        }
-        // ──────────────────────────────────────────────────────────────
-
-        // Check access policy (kept for backward compatibility)
-        let entitlements: Vec<&str> = self
-            .config
-            .required_entitlements
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
-        let caps = check_access_with_usage(
-            &state,
-            &entitlements,
-            0, // No new usage for validation
-        )?;
+        let (caps, selectors_scanned) = self.enforce_policy(&state, "validate_online")?;
 
         // Cache successful validation
         let cache_record = CacheRecord::new(
@@ -271,7 +255,7 @@ impl LicenseManager {
             state,
             caps,
             from_cache: false,
-            selectors_scanned: fse_result.selectors_scanned,
+            selectors_scanned,
         })
     }
 
@@ -296,41 +280,16 @@ impl LicenseManager {
             self.clock.as_ref(),
         )?;
 
-        // Parse cached response
-        let response: KeygenValidateResponse = serde_json::from_str(record.body())
-            .map_err(|e| GatewardenError::ProtocolError(format!("Cache parse error: {}", e)))?;
-
-        let state = LicenseState::from_keygen_response(&response)?;
-
-        // ─── FSE evaluation (offline cached) ──────────────────────────
-        let input = GatewardenEvalInput::from_validated_response(state.clone(), true);
-        let fse_result = execute(&self.fse_plan, &input);
-
-        if !fse_result.allow {
-            for outcome in &fse_result.outcomes {
-                if outcome.decision == RuleDecision::False {
-                    tracing::warn!("FSE rule failed (cached): {}", outcome.rule_id);
-                }
-            }
-            return Err(GatewardenError::InvalidLicense);
-        }
-        // ──────────────────────────────────────────────────────────────
-
-        // Check access policy
-        let entitlements: Vec<&str> = self
-            .config
-            .required_entitlements
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
-        let caps = check_access_with_usage(&state, &entitlements, 0)?;
+        // Parse cached response and enforce policy
+        let state = self.parse_cached_state(&record)?;
+        let (caps, selectors_scanned) = self.enforce_policy(&state, "validate_offline")?;
 
         Ok(ValidationResult {
             valid: state.valid,
             state,
             caps,
             from_cache: true,
-            selectors_scanned: fse_result.selectors_scanned,
+            selectors_scanned,
         })
     }
 

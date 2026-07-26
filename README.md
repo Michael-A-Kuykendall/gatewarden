@@ -63,13 +63,13 @@ use std::time::Duration;
 
 fn main() -> Result<(), gatewarden::GatewardenError> {
     let config = GatewardenConfig {
-        app_name: "myapp",
-        feature_name: "pro",
-        account_id: "your-keygen-account-id",
-        public_key_hex: "your-keygen-ed25519-verify-key",
-        required_entitlements: &["PRO_FEATURE"],
-        user_agent_product: "myapp",
-        cache_namespace: "myapp",
+        app_name: "myapp".to_string(),
+        feature_name: "pro".to_string(),
+        account_id: "your-keygen-account-id".to_string(),
+        public_key_hex: "your-keygen-ed25519-verify-key".to_string(),
+        required_entitlements: vec!["PRO_FEATURE".to_string()],
+        user_agent_product: "myapp".to_string(),
+        cache_namespace: "myapp".to_string(),
         offline_grace: Duration::from_secs(24 * 60 * 60), // 24 hours
     };
 
@@ -130,7 +130,7 @@ match manager.validate_key(&license_key) {
 | `public_key_hex` | Keygen's Ed25519 verify key (64 hex characters) |
 | `required_entitlements` | Entitlement codes the license must have |
 | `offline_grace` | How long cached validations remain valid when offline |
-| `cache_namespace` | Directory name for cache files (under user cache dir) |
+| `cache_namespace` | Directory name for cache files (under the user data dir, e.g. `dirs::data_dir()/<namespace>/`) |
 
 Get your public key from Keygen Dashboard → Settings → Public Key.
 

@@ -61,7 +61,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: 🔒 Run security audit
-      uses: actions-rs/audit-check@v1
+      uses: rustsec/audit-check@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 

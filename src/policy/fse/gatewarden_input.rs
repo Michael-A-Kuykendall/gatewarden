@@ -249,7 +249,7 @@ mod tests {
 
         // Verify internal state is captured correctly
         assert_eq!(input.state.code, "VALID");
-        assert_eq!(input.state.valid, true);
+        assert!(input.state.valid);
         assert!(input.signature_verified);
     }
 }

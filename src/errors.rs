@@ -20,7 +20,6 @@
 //! - [`GatewardenError::KeygenTransport`] — network error to Keygen
 //! - [`GatewardenError::CacheIO`] — cache read/write failed
 //! - [`GatewardenError::CacheExpired`] — offline grace period exceeded
-//! - [`GatewardenError::MeterIO`] — usage meter I/O failed
 //!
 //! ## Configuration Errors (fix config)
 //! - [`GatewardenError::ConfigError`] — invalid configuration
@@ -96,8 +95,4 @@ pub enum GatewardenError {
     /// Usage limit exceeded.
     #[error("Usage limit exceeded")]
     UsageLimitExceeded,
-
-    /// Meter I/O error.
-    #[error("Meter I/O error: {0}")]
-    MeterIO(String),
 }

@@ -5,6 +5,28 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-26
+
+### Removed (breaking)
+
+- **Unwired `meter` module** (`UsageMeter`, `UsageStats`) — this subsystem was
+  never integrated into the validation pipeline. Removed along with the
+  `GatewardenError::MeterIO` variant. The feature (client-side, offline-
+  enforceable usage caps) is a candidate for a future release; it has been
+  shelved with full recovery instructions in
+  [`docs/shelved/usage-meter.md`](docs/shelved/usage-meter.md).
+- **Empty `integrations` module** — placeholder with no implementation.
+- **`crypto::pipeline::verify_response_signature_only`** — unused; the cache
+  layer performs its own signature-only verification via `CacheRecord::verify`.
+- **`protocol::models::parse_keygen_response`** — redundant; use
+  `serde_json::from_slice`/`from_str` directly.
+
+### Changed
+
+- Refactored `LicenseManager` to share a single `enforce_policy` helper across
+  the online, offline, and cached-access paths (removed 3× duplication).
+- Fixed README documentation of the cache location (`dirs::data_dir()`).
+
 ## [0.3.0] - 2026-06-05
 
 ### Added

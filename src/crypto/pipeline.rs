@@ -79,49 +79,6 @@ pub fn verify_response(
     Ok(())
 }
 
-/// Verify a Keygen response without freshness checks.
-///
-/// This is used for cached responses where we don't apply the 5-minute window.
-/// The offline_grace is checked separately by the cache layer.
-pub fn verify_response_signature_only(
-    response: &KeygenResponse,
-    public_key_hex: &str,
-) -> Result<(), GatewardenError> {
-    // Fail-closed on missing required headers
-    let signature_header = response
-        .signature
-        .as_ref()
-        .ok_or(GatewardenError::SignatureMissing)?;
-
-    let date_header = response
-        .date
-        .as_ref()
-        .ok_or(GatewardenError::SignatureMissing)?;
-
-    // Verify digest if present
-    verify_digest(&response.body, response.digest.as_deref())?;
-
-    // Parse signature header
-    let parsed_sig = parse_signature_header(signature_header)?;
-
-    // Decode public key
-    let verifying_key = decode_public_key(public_key_hex)?;
-
-    // Build signing string
-    let signing_string = build_signing_string(
-        "post",
-        &response.request_path,
-        &response.host,
-        date_header,
-        response.digest.as_deref(),
-    );
-
-    // Verify Ed25519 signature
-    verify_ed25519(&parsed_sig.signature, &signing_string, &verifying_key)?;
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,19 +232,6 @@ mod tests {
 
         let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(matches!(result, Err(GatewardenError::ResponseFromFuture)));
-    }
-
-    #[test]
-    fn test_verify_response_signature_only_valid() {
-        let response = create_test_response(
-            r#"{"data":{"valid":true}}"#,
-            "Wed, 15 Jan 2025 12:00:00 GMT",
-            "api.keygen.sh",
-            "/v1/accounts/test/licenses/actions/validate-key",
-        );
-
-        let result = verify_response_signature_only(&response, TEST_VERIFY_KEY_HEX);
-        assert!(result.is_ok());
     }
 
     #[test]

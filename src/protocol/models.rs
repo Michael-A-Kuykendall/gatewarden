@@ -130,16 +130,13 @@ impl LicenseState {
     }
 }
 
-/// Parse raw JSON body into Keygen response.
-pub fn parse_keygen_response(body: &[u8]) -> Result<KeygenValidateResponse, GatewardenError> {
-    serde_json::from_slice(body).map_err(|e| {
-        GatewardenError::ProtocolError(format!("Failed to parse Keygen response: {}", e))
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse(body: &str) -> KeygenValidateResponse {
+        serde_json::from_str(body).unwrap()
+    }
 
     const VALID_RESPONSE: &str = r#"{
         "meta": {
@@ -180,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_parse_valid_response() {
-        let response = parse_keygen_response(VALID_RESPONSE.as_bytes()).unwrap();
+        let response = parse(VALID_RESPONSE);
         assert!(response.meta.valid);
         assert_eq!(response.meta.code, "VALID");
         assert!(response.data.is_some());
@@ -188,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_parse_invalid_response() {
-        let response = parse_keygen_response(INVALID_RESPONSE.as_bytes()).unwrap();
+        let response = parse(INVALID_RESPONSE);
         assert!(!response.meta.valid);
         assert_eq!(response.meta.code, "EXPIRED");
         assert!(response.data.is_none());
@@ -196,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_parse_minimal_response() {
-        let response = parse_keygen_response(MINIMAL_RESPONSE.as_bytes()).unwrap();
+        let response = parse(MINIMAL_RESPONSE);
         assert!(response.meta.valid);
         assert!(response.meta.scope.is_none());
         assert!(response.data.is_none());
@@ -204,13 +201,13 @@ mod tests {
 
     #[test]
     fn test_parse_malformed_json() {
-        let result = parse_keygen_response(b"not json");
-        assert!(matches!(result, Err(GatewardenError::ProtocolError(_))));
+        let result = serde_json::from_str::<KeygenValidateResponse>("not json");
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_license_state_extraction() {
-        let response = parse_keygen_response(VALID_RESPONSE.as_bytes()).unwrap();
+        let response = parse(VALID_RESPONSE);
         let state = LicenseState::from_keygen_response(&response).unwrap();
 
         assert!(state.valid);
@@ -223,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_license_state_minimal() {
-        let response = parse_keygen_response(MINIMAL_RESPONSE.as_bytes()).unwrap();
+        let response = parse(MINIMAL_RESPONSE);
         let state = LicenseState::from_keygen_response(&response).unwrap();
 
         assert!(state.valid);
@@ -234,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_license_state_invalid() {
-        let response = parse_keygen_response(INVALID_RESPONSE.as_bytes()).unwrap();
+        let response = parse(INVALID_RESPONSE);
         let state = LicenseState::from_keygen_response(&response).unwrap();
 
         assert!(!state.valid);
