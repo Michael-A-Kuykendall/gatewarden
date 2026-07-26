@@ -5,6 +5,23 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-26
+
+### Security
+
+- **Bridge rate-limiter bypass fixed.** The per-IP token bucket keyed off the
+  caller-controlled `X-Forwarded-For` / `X-Real-IP` headers, letting a client
+  reset its own bucket by spoofing a fresh IP on every request. The client IP
+  is now taken from the real TCP peer address via `ConnectInfo`, which is not
+  attacker-controllable.
+
+### Changed
+
+- Bumped direct `sha2` dependency to `0.11` to deduplicate `sha2`/`digest` in
+  the tree (ed25519-dalek 3.0 pulls `sha2 0.11`; we were pinning `0.10`).
+- Fixed a misleading bridge config error message (`[[profiles]]` →
+  `[profiles.<name>]`).
+
 ## [0.4.0] - 2026-07-26
 
 ### Removed (breaking)

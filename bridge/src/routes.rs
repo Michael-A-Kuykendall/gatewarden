@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
@@ -8,7 +8,7 @@ use axum::{
 };
 use gatewarden::GatewardenError;
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::task;
 
@@ -204,14 +204,17 @@ pub async fn check_access(
 // ─── Rate-limit middleware layer ─────────────────────────────────────────────
 
 /// Axum middleware: reject requests that exceed the configured per-IP rate limit.
-/// Extracts client IP from X-Forwarded-For (first hop) or X-Real-IP header;
-/// falls back to 127.0.0.1 (loopback, typical in dev) if neither is present.
+///
+/// The client IP is taken from the real TCP peer address (`ConnectInfo`), which
+/// is NOT attacker-controllable. Client-supplied headers such as
+/// `X-Forwarded-For` are deliberately ignored, because trusting them would let
+/// any caller reset their own bucket by spoofing a fresh IP on every request.
 pub async fn rate_limit_layer(
     State(state): State<Arc<AppState>>,
     req: Request<Body>,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<ErrorEnvelope>)> {
-    let ip = extract_client_ip(req.headers());
+    let ip = extract_client_ip(&req);
     if !state.rate_limiter.check_and_consume(ip) {
         return Err((
             StatusCode::TOO_MANY_REQUESTS,
@@ -224,16 +227,16 @@ pub async fn rate_limit_layer(
     Ok(next.run(req).await)
 }
 
-/// Extract the first IP address from X-Forwarded-For or X-Real-IP headers.
-/// Falls back to loopback for local-only deployments.
-fn extract_client_ip(headers: &axum::http::HeaderMap) -> IpAddr {
-    let candidate = headers
-        .get("x-forwarded-for")
-        .or_else(|| headers.get("x-real-ip"))
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .and_then(|s| s.trim().parse::<IpAddr>().ok());
-    candidate.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
+/// Determine the client IP from the TCP peer address (`ConnectInfo`).
+///
+/// Falls back to loopback only if connection info is unavailable (e.g. in unit
+/// tests). Deliberately does NOT read `X-Forwarded-For`/`X-Real-IP`: those are
+/// caller-controlled and would make the rate limiter trivially bypassable.
+fn extract_client_ip(req: &Request<Body>) -> IpAddr {
+    req.extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ci| ci.0.ip())
+        .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
 }
 
 /// Serves the embedded OpenAPI spec for discoverability.

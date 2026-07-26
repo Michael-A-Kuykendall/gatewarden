@@ -36,7 +36,7 @@ impl BridgeConfig {
         let config: Self = toml::from_str(&content)
             .map_err(|e| anyhow::anyhow!("Invalid config TOML in '{}': {}", path, e))?;
         if config.profiles.is_empty() {
-            anyhow::bail!("Config must define at least one [[profiles]] entry");
+            anyhow::bail!("Config must define at least one [profiles.<name>] entry");
         }
         Ok(config)
     }
