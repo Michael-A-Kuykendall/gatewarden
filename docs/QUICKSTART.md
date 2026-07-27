@@ -60,6 +60,34 @@ let result = manager.check_access("USER-LICENSE-KEY")?;
 // Works offline for up to `offline_grace` duration
 ```
 
+### 4. Offline Usage Metering (feature `meter`)
+
+Enforce per-key usage caps **locally and offline** — without relying on
+Keygen's server-side `maxUses`. Enable the `meter` Cargo feature:
+
+```toml
+gatewarden = { version = "0.4.2", features = ["meter"] }
+```
+
+```rust
+// Record a use; returns UsageLimitExceeded when the local cap is breached.
+manager.record_use("USER-LICENSE-KEY")?;
+
+// Every validation/check consults the local meter automatically:
+let result = manager.check_access("USER-LICENSE-KEY")?;
+// result.caps: max_uses, current_uses, remaining, local_uses
+
+// Read the current counts at any time:
+let caps = manager.meter_usage("USER-LICENSE-KEY")?;
+```
+
+- The effective cap is `maxUses - Keygen_uses - locally_metered_uses`, enforced
+  even while offline.
+- Enforcement requires the license to have been validated/cached at least once
+  (online or via the offline cache) so its `maxUses` is known; `record_use` still
+  records locally when no cap is known, but does not cap.
+- See `README.md` → "Offline Usage Metering" for the full contract.
+
 ---
 
 ## Path B: Bridge Sidecar (TypeScript, Python, Go, etc.)
@@ -107,6 +135,29 @@ Response:
 ```json
 {"valid": true, "fromCache": false, "stateCode": "VALID", "entitlements": ["PRO"]}
 ```
+
+When a usage cap is known, validate/check responses also include a `usage`
+object with the locally-metered count folded in:
+
+```json
+{"valid": true, "fromCache": false, "stateCode": "VALID", "entitlements": ["PRO"],
+ "usage": {"maxUses": 1000, "currentUses": 42, "remaining": 958, "localUses": 3}}
+```
+
+To record a local use (and enforce the cap offline), call:
+
+```bash
+curl -X POST http://127.0.0.1:4760/v1/record-use \
+  -H "Content-Type: application/json" \
+  -H "X-Bridge-Token: your-token" \
+  -d '{"profileId": "myapp-pro", "licenseKey": "USER-LICENSE-KEY"}'
+```
+
+```json
+{"recorded": true, "remaining": 957, "localUses": 4}
+```
+
+Returns HTTP `429` (`USAGE_LIMIT_EXCEEDED`) when the cap is breached.
 
 ---
 

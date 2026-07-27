@@ -164,6 +164,16 @@ components:
         recorded:
           type: boolean
           description: True when the use was recorded (cap not exceeded)
+        remaining:
+          type: integer
+          nullable: true
+          description: >-
+            Remaining uses after this recording, accounting for both Keygen
+            `uses` and the locally-metered count. Null when the cap is unknown.
+        localUses:
+          type: integer
+          nullable: true
+          description: Locally-metered uses counted so far for this key (offline meter).
 
     UsageInfo:
       type: object
@@ -183,7 +193,14 @@ components:
         remaining:
           type: integer
           nullable: true
-          description: maxUses - currentUses, or null when unknown
+          description: >-
+            True remaining after subtracting both Keygen `uses` and the
+            locally-metered count (maxUses - currentUses - localUses), or null
+            when unknown
+        localUses:
+          type: integer
+          nullable: true
+          description: Locally-metered uses for this key (offline meter), or null when none
 
     ValidationEnvelope:
       type: object

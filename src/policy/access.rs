@@ -51,16 +51,42 @@ pub struct UsageCaps {
     /// Usage limit (None = unlimited). Period semantics are consumer-defined.
     pub max_uses: Option<u64>,
 
-    /// Current usage count from Keygen.
+    /// Current usage count reported by Keygen.
     pub current_uses: Option<u64>,
+
+    /// Remaining uses after accounting for Keygen's current count **and** the
+    /// locally-metered count (`local_uses`). `None` when there is no cap.
+    pub remaining: Option<u64>,
+
+    /// Locally-metered uses for this key, counted by the `meter` feature.
+    /// `None` when the `meter` feature is disabled or no local use has occurred.
+    pub local_uses: Option<u64>,
 }
 
 impl UsageCaps {
-    /// Extract caps from license state.
+    /// Extract caps from license state (no locally-metered uses counted).
     pub fn from_license_state(state: &LicenseState) -> Self {
+        Self::with_local(state, 0)
+    }
+
+    /// Extract caps, accounting for `local_uses` additional local consumption.
+    ///
+    /// `remaining` is `max_uses - current_uses - local_uses` (saturating). This
+    /// is what makes the offline-enforceable cap visible to callers: the local
+    /// meter count is subtracted, not just Keygen's server-side counter.
+    pub fn with_local(state: &LicenseState, local_uses: u64) -> Self {
+        let max = state.max_uses;
+        let current = state.current_uses.unwrap_or(0);
+        let remaining = max.map(|m| m.saturating_sub(current + local_uses));
         Self {
-            max_uses: state.max_uses,
+            max_uses: max,
             current_uses: state.current_uses,
+            remaining,
+            local_uses: if local_uses == 0 {
+                None
+            } else {
+                Some(local_uses)
+            },
         }
     }
 
@@ -95,8 +121,8 @@ pub fn check_access_with_usage(
     // First check basic access
     check_access(state, required_entitlements)?;
 
-    // Extract and check usage caps
-    let caps = UsageCaps::from_license_state(state);
+    // Extract and check usage caps (local count is threaded through here)
+    let caps = UsageCaps::with_local(state, additional_uses);
 
     if !caps.allows_usage(additional_uses) {
         return Err(GatewardenError::UsageLimitExceeded);

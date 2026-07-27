@@ -177,17 +177,26 @@ manager.record_use("LICENSE-KEY")?;
 
 // Every validation consults the local meter automatically:
 let result = manager.check_access("LICENSE-KEY")?;
-// result.caps includes max_uses / current_uses / remaining
+// result.caps includes max_uses / current_uses / remaining / local_uses
+
+// Read the current counts (incl. offline usage) at any time:
+let caps = manager.meter_usage("LICENSE-KEY")?;
+// caps.remaining == max_uses - current_uses - local_uses
 ```
 
 - The meter is **per-license-keyed** (keyed by the license-key hash).
 - `LicenseManager::record_use(key)` increments, persists, and re-checks the cap.
 - The local monthly count is threaded into `check_access_with_usage`, so every
   validation respects the local cap even offline.
-- `Selector::UsageRemaining` reports the actual remaining uses.
+- `Selector::UsageRemaining` reports the actual remaining uses
+  (`max_uses - current_uses - local_uses`).
+- Cap enforcement requires a known cap: a license must have been validated/cached
+  at least once (online or via the offline cache) so its `maxUses` is known. When
+  no cap is known, `record_use` still records locally but does not cap.
 - Via the bridge, `POST /v1/record-use` records a use and returns `429`
-  (`USAGE_LIMIT_EXCEEDED`) on breach; validation responses surface usage caps
-  (`usage`: `maxUses`, `currentUses`, `remaining`).
+  (`USAGE_LIMIT_EXCEEDED`) on breach; both `POST /v1/record-use` and the
+  validation responses surface usage caps
+  (`usage`: `maxUses`, `currentUses`, `remaining`, `localUses`).
 
 When `meter` is **not** enabled, behavior is unchanged — the API is additive and
 non-breaking. See [docs/QUICKSTART.md](docs/QUICKSTART.md) and the

@@ -175,14 +175,19 @@ manager.record_use("LICENSE-KEY")?;
 
 // 每次校驗都會自動查詢本地計量：
 let result = manager.check_access("LICENSE-KEY")?;
-// result.caps 包含 max_uses / current_uses / remaining
+// result.caps 包含 max_uses / current_uses / remaining / local_uses
+
+// 隨時讀取目前計數（含離線用量）：
+let caps = manager.meter_usage("LICENSE-KEY")?;
+// caps.remaining == max_uses - current_uses - local_uses
 ```
 
 - 計量是**按許可證金鑰**進行的（以許可證金鑰雜湊為鍵）。
 - `LicenseManager::record_use(key)` 會遞增、持久化並重新檢查上限。
-- 本地月度計數會被傳入 `check_access_with_usage`，因此即使離線，每次校驗也會遵守本地上限。
-- `Selector::UsageRemaining` 會報告實際剩餘的可用次數。
-- 透過橋接服務，`POST /v1/record-use` 記錄一次使用，並在超出上限時回傳 `429`（`USAGE_LIMIT_EXCEEDED`）；校驗回應會展示用量上限（`usage`：`maxUses`、`currentUses`、`remaining`）。
+- 本地月度計量會被傳入 `check_access_with_usage`，因此即使離線，每次校驗也會遵守本地上限。
+- `Selector::UsageRemaining` 會報告實際剩餘的可用次數（`max_uses - current_uses - local_uses`）。
+- 上限強制需要已知的上限：許可證必須至少被校驗/快取過一次（線上或透過離線快取），以便獲知 `maxUses`。若未知上限，`record_use` 仍會本地記錄但不做上限限制。
+- 透過橋接服務，`POST /v1/record-use` 記錄一次使用，並在超出上限時回傳 `429`（`USAGE_LIMIT_EXCEEDED`）；`POST /v1/record-use` 與校驗回應都會展示用量上限（`usage`：`maxUses`、`currentUses`、`remaining`、`localUses`）。
 
 未啟用 `meter` 時，行為保持不變——該 API 是增量且非破壞性的。詳見 [docs/QUICKSTART.md](docs/QUICKSTART.md) 與 [CHANGELOG.md](CHANGELOG.md) 中的 `[0.4.2]` 條目。
 

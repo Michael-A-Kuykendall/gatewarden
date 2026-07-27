@@ -78,7 +78,7 @@ gatewarden (library crate)
 ├── config.rs           — GatewardenConfig
 ├── clock.rs            — Clock trait (real + mock for testing)
 ├── errors.rs           — Typed error enum
-└── meter/              — Usage tracking (future)
+└── meter/              — Offline usage metering (feature `meter`)
 
 bridge (binary crate)
 ├── main.rs             — Axum server setup, background prune task
@@ -214,7 +214,7 @@ FSE selectors extract values from the validation response:
 | `StateValid` | Bool | `response.meta.valid` |
 | `Entitlements` | Vec\<String\> | `response.data.attributes.entitlements` |
 | `ExpiresAt` | Bool (presence) | `response.data.attributes.expiresAt` |
-| `UsageRemaining` | U64 | Usage tracking (future) |
+| `UsageRemaining` | U64 | Remaining uses (`max_uses - current_uses - local_uses`); `Missing` when uncapped |
 
 ### Default Rules
 

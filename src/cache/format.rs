@@ -146,6 +146,50 @@ impl CacheRecord {
     }
 }
 
+/// Well-known Ed25519 test seed (DO NOT USE IN PRODUCTION).
+///
+/// The matching verifying key is
+/// `d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`,
+/// which is the public key used by the crate's test configurations.
+#[cfg(all(test, feature = "meter"))]
+const TEST_SIGNING_SEED_BYTES: [u8; 32] = [
+    0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c, 0xc4,
+    0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae, 0x7f, 0x60,
+];
+
+/// Build a cache record signed with the well-known Ed25519 test seed.
+///
+/// Intended for tests and integration seams only. The produced record verifies
+/// against the crate's standard test public key
+/// (`d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`).
+#[cfg(all(test, feature = "meter"))]
+pub(crate) fn signed_test_record(
+    body: &str,
+    date: &str,
+    host: &str,
+    path: &str,
+    clock: &dyn Clock,
+) -> CacheRecord {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use ed25519_dalek::{Signer, SigningKey};
+
+    let signing_key = SigningKey::from_bytes(&TEST_SIGNING_SEED_BYTES);
+    let digest = crate::crypto::digest::format_digest_header(body.as_bytes());
+    let signing_string = build_signing_string("post", path, host, date, Some(&digest));
+    let signature = signing_key.sign(signing_string.as_bytes());
+    let sig_b64 = STANDARD.encode(signature.to_bytes());
+    let sig_header = format!(r#"algorithm="ed25519", signature="{}""#, sig_b64);
+    CacheRecord::new(
+        date.to_string(),
+        sig_header,
+        Some(digest),
+        body.to_string(),
+        path.to_string(),
+        host.to_string(),
+        clock,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

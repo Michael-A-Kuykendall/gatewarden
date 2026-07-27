@@ -392,6 +392,49 @@ impl LicenseManager {
             .ok_or_else(|| GatewardenError::MeterIO("usage meter unavailable".to_string()))?;
         meter.increment(&key_hash, self.clock.as_ref())
     }
+
+    /// Current usage caps for `license_key`, folding in the locally-metered count.
+    ///
+    /// This is the read-side counterpart to [`LicenseManager::record_use`]: it
+    /// returns the same `UsageCaps` that `validate_key`/`check_access` report,
+    /// including the true `remaining` after subtracting offline (`meter`) usage.
+    /// Used by the bridge to surface `remaining` after a successful `record_use`.
+    #[cfg(feature = "meter")]
+    pub fn meter_usage(&self, license_key: &str) -> Result<UsageCaps, GatewardenError> {
+        let key_hash = hash_license_key(license_key);
+        let record = self
+            .cache
+            .load(&key_hash)?
+            .ok_or(GatewardenError::InvalidLicense)?;
+        record.verify(
+            &self.config.public_key_hex,
+            self.config.offline_grace,
+            self.clock.as_ref(),
+        )?;
+        let state = self.parse_cached_state(&record)?;
+        let local = self.meter_monthly_count(&key_hash);
+        Ok(UsageCaps::with_local(&state, local))
+    }
+
+    /// Seed an authenticated cache entry for `license_key` (test/integration only).
+    ///
+    /// The record is signed with the crate's well-known Ed25519 test seed, so it
+    /// verifies against the standard test `public_key_hex`. This lets tests drive
+    /// the offline path (`check_access`, `record_use`) without contacting Keygen.
+    #[cfg(all(test, feature = "meter"))]
+    pub(crate) fn seed_cache_for_test(
+        &self,
+        license_key: &str,
+        body: &str,
+        date: &str,
+        host: &str,
+        path: &str,
+    ) -> Result<(), GatewardenError> {
+        let key_hash = hash_license_key(license_key);
+        let record =
+            crate::cache::format::signed_test_record(body, date, host, path, self.clock.as_ref());
+        self.cache.save(&key_hash, &record)
+    }
 }
 
 #[cfg(test)]
@@ -441,5 +484,79 @@ mod tests {
         let config = test_config();
         let manager = LicenseManager::new(config).unwrap();
         assert_eq!(manager.config().app_name, "test-app");
+    }
+
+    /// End-to-end exercise of the offline usage meter: seed a signed cache,
+    /// drive `record_use`/`check_access`, and confirm that the locally-metered
+    /// count is surfaced as `local_uses` and subtracted from `remaining`, and
+    /// that the cap is enforced once the local count reaches `maxUses`.
+    #[test]
+    #[cfg(feature = "meter")]
+    fn offline_meter_reports_remaining_and_enforces_cap() {
+        use crate::clock::MockClock;
+        use chrono::{TimeZone, Utc};
+        use std::sync::Arc;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        // Unique cache namespace per run so the file-backed meter/cache don't
+        // leak state across test invocations.
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut config = test_config();
+        config.cache_namespace = format!("gatewarden-test-meter-{}", suffix);
+
+        let clock = Arc::new(MockClock::new(
+            Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap(),
+        ));
+        let manager = LicenseManager::new_with_clock(config, clock).unwrap();
+
+        let key = "TEST-LICENSE-KEY-OFFLINE-4242";
+        let body = r#"{"meta":{"valid":true,"code":"VALID","scope":{"entitlements":["PREMIUM"]}},"data":{"id":"lic-1","type":"licenses","attributes":{"name":"Test License","maxUses":10,"uses":0}}}"#;
+        manager
+            .seed_cache_for_test(
+                key,
+                body,
+                "Wed, 15 Jan 2025 12:00:00 GMT",
+                "api.keygen.sh",
+                "/v1/accounts/test/licenses/lic-1/actions/validate",
+            )
+            .expect("seed signed cache");
+
+        // Before any local use: Keygen `uses=0`, no local count -> remaining 10.
+        let before = manager.check_access(key).expect("check_access");
+        assert_eq!(before.caps.remaining, Some(10));
+        assert_eq!(before.caps.local_uses, None);
+
+        // Record up to the cap (maxUses = 10) and watch remaining decrement while
+        // the locally-metered count climbs.
+        for i in 1..=10u64 {
+            manager
+                .record_use(key)
+                .unwrap_or_else(|_| panic!("record_use within cap at iteration {}", i));
+            let caps = manager.check_access(key).expect("check_access").caps;
+            assert_eq!(caps.local_uses, Some(i), "local_uses after {} records", i);
+            assert_eq!(
+                caps.remaining,
+                Some(10 - i),
+                "remaining after {} records",
+                i
+            );
+        }
+
+        // The 11th use must be rejected: the offline cap is hit.
+        assert!(
+            matches!(
+                manager.record_use(key),
+                Err(GatewardenError::UsageLimitExceeded)
+            ),
+            "11th use must be rejected by the offline cap"
+        );
+
+        // Read-side surface confirms the post-cap state.
+        let info = manager.meter_usage(key).expect("meter_usage");
+        assert_eq!(info.local_uses, Some(10));
+        assert_eq!(info.remaining, Some(0));
     }
 }

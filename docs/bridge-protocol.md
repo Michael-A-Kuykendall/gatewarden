@@ -27,6 +27,14 @@ Why this choice:
 - GET /v1/health
 - POST /v1/validate-key
 - POST /v1/check-access
+- POST /v1/record-use — records one local, offline-enforceable usage event
+  (feature `meter`); returns `429` (`USAGE_LIMIT_EXCEEDED`) on cap breach.
+
+Validation and record-use responses surface an optional `usage` object with the
+locally-metered count folded in: `maxUses`, `currentUses`, `remaining`
+(`maxUses - currentUses - localUses`), and `localUses` (offline meter count).
+The authoritative field list lives in the OpenAPI spec
+(`spec/gatewarden-bridge.openapi.yaml`).
 
 ## Profile Model
 

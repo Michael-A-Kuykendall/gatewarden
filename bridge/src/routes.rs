@@ -91,20 +91,28 @@ pub struct ValidationResponse {
 pub struct UsageInfo {
     pub max_uses: Option<u64>,
     pub current_uses: Option<u64>,
-    /// `max_uses - current_uses`, or `None` when the cap is unknown.
+    /// Remaining uses after accounting for Keygen's `currentUses` **and** the
+    /// locally-metered count. `None` when the cap is unknown.
     pub remaining: Option<u64>,
+    /// Locally-metered uses counted by the `meter` feature (offline).
+    pub local_uses: Option<u64>,
 }
 
 /// Build the `UsageInfo` surface from the manager's usage caps.
+///
+/// Uses `caps.remaining` directly so the bridge agrees with the FSE
+/// `UsageRemaining` selector: local meter consumption is subtracted.
 fn usage_info(caps: &gatewarden::UsageCaps) -> Option<UsageInfo> {
-    let remaining = match (caps.max_uses, caps.current_uses) {
-        (Some(max), Some(cur)) => Some(max.saturating_sub(cur)),
-        _ => None,
-    };
+    let has_any =
+        caps.max_uses.is_some() || caps.current_uses.is_some() || caps.local_uses.is_some();
+    if !has_any {
+        return None;
+    }
     Some(UsageInfo {
         max_uses: caps.max_uses,
         current_uses: caps.current_uses,
-        remaining,
+        remaining: caps.remaining,
+        local_uses: caps.local_uses,
     })
 }
 
@@ -245,6 +253,11 @@ pub struct RecordUseRequest {
 pub struct RecordUseResponse {
     /// `true` if the use was recorded (cap not exceeded).
     pub recorded: bool,
+    /// Remaining uses after this recording, accounting for both Keygen `uses`
+    /// and the locally-metered count. `None` when the cap is unknown.
+    pub remaining: Option<u64>,
+    /// Locally-metered uses counted so far for this key (offline meter).
+    pub local_uses: Option<u64>,
 }
 
 /// Record a single local use of `license_key` via `LicenseManager::record_use`.
@@ -266,7 +279,14 @@ pub async fn record_use(
     })?;
 
     match task::block_in_place(|| manager.record_use(&req.license_key)) {
-        Ok(()) => Ok(Json(RecordUseResponse { recorded: true })),
+        Ok(()) => {
+            let caps = task::block_in_place(|| manager.meter_usage(&req.license_key)).ok();
+            Ok(Json(RecordUseResponse {
+                recorded: true,
+                remaining: caps.as_ref().and_then(|c| c.remaining),
+                local_uses: caps.and_then(|c| c.local_uses),
+            }))
+        }
         Err(e) => {
             let status = match &e {
                 GatewardenError::UsageLimitExceeded => axum::http::StatusCode::TOO_MANY_REQUESTS,

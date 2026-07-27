@@ -22,11 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GatewardenError::MeterIO` restored (gated behind `meter`).
   - `Selector::UsageRemaining` now reports the actual remaining uses
     (`max_uses - current_uses - local_metered`) instead of `Missing`.
+  - `UsageCaps` now exposes `local_uses` (offline meter count) and `remaining`
+    (the true remaining after subtracting both Keygen `uses` and local meter).
+  - `LicenseManager::meter_usage(key)` returns the current `UsageCaps`
+    (incl. `local_uses`/`remaining`) without recording a use.
 - **Bridge: `POST /v1/record-use`** records a local use via `record_use` and
-  returns `429` (`USAGE_LIMIT_EXCEEDED`) on cap breach. The bridge now builds
+  returns `429` (`USAGE_LIMIT_EXCEEDED`) on cap breach. The response now also
+  includes `remaining` and `localUses`. The bridge now builds
   gatewarden with the `meter` feature.
 - **Bridge validation responses now surface usage caps** (`usage`: `maxUses`,
-  `currentUses`, `remaining`) on both `/v1/validate-key` and `/v1/check-access`.
+  `currentUses`, `remaining`, `localUses`) on `/v1/validate-key`,
+  `/v1/check-access`, and `/v1/record-use`.
 - **Chinese documentation.** Simplified (简体中文) and Traditional (繁體中文)
   README translations under `docs/zh-CN/` and `docs/zh-TW/`, linked from the
   top of the README.
