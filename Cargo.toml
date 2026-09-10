@@ -43,7 +43,7 @@ thiserror = "2"
 tracing = "0.1"
 
 # Platform
-dirs = "6"
+dirs = "7"
 once_cell = "1"
 
 [dev-dependencies]
