@@ -126,6 +126,10 @@ components:
           minLength: 8
           description: Raw license key supplied by user
           example: XXXX-XXXX-XXXX-XXXX
+        fingerprint:
+          type: string
+          nullable: true
+          description: Optional machine fingerprint used for Keygen scope and cache isolation
 
     CheckAccessRequest:
       type: object
@@ -140,6 +144,10 @@ components:
         licenseKey:
           type: string
           minLength: 8
+        fingerprint:
+          type: string
+          nullable: true
+          description: Optional machine fingerprint used for cache isolation
 
     RecordUseRequest:
       type: object
@@ -154,6 +162,10 @@ components:
         licenseKey:
           type: string
           minLength: 8
+        fingerprint:
+          type: string
+          nullable: true
+          description: Optional machine fingerprint used for meter/cache isolation
 
     RecordUseResponse:
       type: object

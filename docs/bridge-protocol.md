@@ -42,6 +42,11 @@ Requests carry profileId. Sidecar resolves profileId to a local GatewardenConfig
 
 This avoids shipping account and key material in every request and keeps configuration host-local.
 
+Validation and record-use requests may include an optional `fingerprint`. When
+present, Gatewarden sends it as Keygen `meta.scope.fingerprint` and includes it
+in the authenticated cache and meter keys, preventing a successful response
+from being reused across machines. Existing callers may omit it.
+
 ## Error Model
 
 The bridge maps Gatewarden typed errors to stable wire error types:

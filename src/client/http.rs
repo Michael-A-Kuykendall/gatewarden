@@ -151,6 +151,16 @@ impl KeygenClient {
         license_key: &str,
         scope_entitlements: &[&str],
     ) -> Result<KeygenResponse, GatewardenError> {
+        self.validate_key_with_fingerprint(license_key, scope_entitlements, None)
+    }
+
+    /// Validate a license key with entitlement and optional machine scope.
+    pub fn validate_key_with_fingerprint(
+        &self,
+        license_key: &str,
+        scope_entitlements: &[&str],
+        fingerprint: Option<&str>,
+    ) -> Result<KeygenResponse, GatewardenError> {
         let path = format!(
             "/v1/accounts/{}/licenses/actions/validate-key",
             self.account_id
@@ -158,24 +168,23 @@ impl KeygenClient {
 
         let url = format!("https://{}{}", self.host, path);
 
-        // Build request body
-        // Include scope.entitlements to get entitlements echoed back in response
-        let body = if scope_entitlements.is_empty() {
-            serde_json::json!({
-                "meta": {
-                    "key": license_key
-                }
-            })
-        } else {
-            serde_json::json!({
-                "meta": {
-                    "key": license_key,
-                    "scope": {
-                        "entitlements": scope_entitlements
-                    }
-                }
-            })
-        };
+        let mut scope = serde_json::Map::new();
+        if !scope_entitlements.is_empty() {
+            scope.insert(
+                "entitlements".to_string(),
+                serde_json::json!(scope_entitlements),
+            );
+        }
+        if let Some(fingerprint) = fingerprint {
+            scope.insert("fingerprint".to_string(), serde_json::json!(fingerprint));
+        }
+
+        let mut meta = serde_json::Map::new();
+        meta.insert("key".to_string(), serde_json::json!(license_key));
+        if !scope.is_empty() {
+            meta.insert("scope".to_string(), serde_json::Value::Object(scope));
+        }
+        let body = serde_json::json!({ "meta": meta });
         let body_bytes = serde_json::to_vec(&body)
             .map_err(|e| GatewardenError::ProtocolError(format!("Failed to serialize: {}", e)))?;
 

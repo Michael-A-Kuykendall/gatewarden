@@ -12,6 +12,7 @@ compatibility_date = "2024-09-23"
 #   publicKeyHex        - Ed25519 verify key (64 hex chars, NOT a secret)
 #   requiredEntitlements - Array of entitlement codes the license must carry
 #   offlineGraceSecs    - How long to serve from cache when Keygen is unreachable (default: 86400)
+# Callers may send `fingerprint` on validation requests to scope Keygen and KV cache entries.
 #
 # Example:
 # [vars]

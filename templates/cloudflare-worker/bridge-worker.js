@@ -20,8 +20,8 @@
  *   4. wrangler deploy
  *
  * API (same contract as local sidecar):
- *   POST /v1/validate-key    { profileId, licenseKey }
- *   POST /v1/check-access    { profileId, licenseKey }  (cache-first)
+ *   POST /v1/validate-key    { profileId, licenseKey, fingerprint? }
+ *   POST /v1/check-access    { profileId, licenseKey, fingerprint? }  (cache-first)
  *   GET  /v1/health
  *   GET  /.well-known/openapi.json
  */
@@ -69,7 +69,7 @@ function handleHealth(env) {
   const profiles = loadProfiles(env);
   return json({
     status: 'ok',
-    version: '0.2.0',
+    version: '0.2.1',
     profiles: Object.keys(profiles),
     deployment: 'cloudflare-worker',
   });
@@ -89,13 +89,16 @@ async function handleValidateKey(request, env, cacheFirst) {
     return json({ error: 'Invalid JSON body', code: 'BAD_REQUEST' }, 400);
   }
 
-  const { profileId, licenseKey } = body;
+  const { profileId, licenseKey, fingerprint } = body;
 
   if (!profileId || typeof profileId !== 'string') {
     return json({ error: 'profileId is required', code: 'BAD_REQUEST' }, 400);
   }
   if (!licenseKey || typeof licenseKey !== 'string') {
     return json({ error: 'licenseKey is required', code: 'MISSING_LICENSE' }, 400);
+  }
+  if (fingerprint !== undefined && (typeof fingerprint !== 'string' || !fingerprint.trim())) {
+    return json({ error: 'fingerprint must be a non-empty string', code: 'BAD_REQUEST' }, 400);
   }
 
   const profiles = loadProfiles(env);
@@ -106,7 +109,7 @@ async function handleValidateKey(request, env, cacheFirst) {
 
   // ── Cache-first path (check-access) ─────────────────────────────────────
   if (cacheFirst && env.GATEWARDEN_CACHE_KV) {
-    const cacheKey = `cache:${profileId}:${await sha256Hex(licenseKey)}`;
+    const cacheKey = `cache:${profileId}:${await sha256Hex(`${licenseKey}\u0000${fingerprint ?? ''}`)}`;
     const cached = await env.GATEWARDEN_CACHE_KV.get(cacheKey, 'json');
     if (cached) {
       // Verify the cached record is still within the offline grace period
@@ -120,7 +123,7 @@ async function handleValidateKey(request, env, cacheFirst) {
   }
 
   // ── Online validation via Keygen ─────────────────────────────────────────
-  const keygenResult = await validateWithKeygen(licenseKey, profile, env);
+  const keygenResult = await validateWithKeygen(licenseKey, fingerprint, profile, env);
   if (!keygenResult.ok) {
     return json(keygenResult.error, keygenResult.status);
   }
@@ -129,7 +132,7 @@ async function handleValidateKey(request, env, cacheFirst) {
 
   // ── Write to KV cache on success ─────────────────────────────────────────
   if (result.valid && env.GATEWARDEN_CACHE_KV) {
-    const cacheKey = `cache:${profileId}:${await sha256Hex(licenseKey)}`;
+    const cacheKey = `cache:${profileId}:${await sha256Hex(`${licenseKey}\u0000${fingerprint ?? ''}`)}`;
     const graceSecs = profile.offlineGraceSecs ?? 86400;
     await env.GATEWARDEN_CACHE_KV.put(
       cacheKey,
@@ -143,17 +146,19 @@ async function handleValidateKey(request, env, cacheFirst) {
 
 // ── Keygen API call with Ed25519 response signature verification ──────────────
 
-async function validateWithKeygen(licenseKey, profile, env) {
+async function validateWithKeygen(licenseKey, fingerprint, profile, env) {
   const accountId = profile.accountId;
   const path = `/v1/accounts/${accountId}/licenses/actions/validate-key`;
   const host = 'api.keygen.sh';
   const url = `https://${host}${path}`;
 
   const entitlements = profile.requiredEntitlements ?? [];
-  const bodyObj =
-    entitlements.length > 0
-      ? { meta: { key: licenseKey, scope: { entitlements } } }
-      : { meta: { key: licenseKey } };
+  const scope = {};
+  if (entitlements.length > 0) scope.entitlements = entitlements;
+  if (fingerprint) scope.fingerprint = fingerprint;
+  const bodyObj = Object.keys(scope).length > 0
+    ? { meta: { key: licenseKey, scope } }
+    : { meta: { key: licenseKey } };
 
   const bodyBytes = new TextEncoder().encode(JSON.stringify(bodyObj));
 
@@ -172,7 +177,7 @@ async function validateWithKeygen(licenseKey, profile, env) {
       Host: host,
       Date: reqDate,
       Digest: digestHeader,
-      'User-Agent': `gatewarden-bridge-worker/0.2.0`,
+      'User-Agent': `gatewarden-bridge-worker/0.2.1`,
     },
     body: bodyBytes,
   });

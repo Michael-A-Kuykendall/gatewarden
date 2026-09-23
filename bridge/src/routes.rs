@@ -71,6 +71,8 @@ pub async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> 
 pub struct ValidateKeyRequest {
     pub profile_id: String,
     pub license_key: String,
+    /// Optional machine fingerprint for Keygen scope and cache isolation.
+    pub fingerprint: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -130,7 +132,9 @@ pub async fn validate_key(
         )
     })?;
 
-    match task::block_in_place(|| manager.validate_key(&req.license_key)) {
+    match task::block_in_place(|| {
+        manager.validate_key_with_fingerprint(&req.license_key, req.fingerprint.as_deref())
+    }) {
         Ok(result) => Ok(Json(ValidationResponse {
             valid: result.valid,
             from_cache: result.from_cache,
@@ -181,6 +185,8 @@ pub async fn validate_key(
 pub struct CheckAccessRequest {
     pub profile_id: String,
     pub license_key: String,
+    /// Optional machine fingerprint for cache isolation.
+    pub fingerprint: Option<String>,
 }
 
 pub async fn check_access(
@@ -197,7 +203,9 @@ pub async fn check_access(
         )
     })?;
 
-    match task::block_in_place(|| manager.check_access(&req.license_key)) {
+    match task::block_in_place(|| {
+        manager.check_access_with_fingerprint(&req.license_key, req.fingerprint.as_deref())
+    }) {
         Ok(result) => Ok(Json(ValidationResponse {
             valid: result.valid,
             from_cache: result.from_cache,
@@ -246,6 +254,8 @@ pub async fn check_access(
 pub struct RecordUseRequest {
     pub profile_id: String,
     pub license_key: String,
+    /// Optional machine fingerprint for meter/cache isolation.
+    pub fingerprint: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -278,9 +288,14 @@ pub async fn record_use(
         )
     })?;
 
-    match task::block_in_place(|| manager.record_use(&req.license_key)) {
+    match task::block_in_place(|| {
+        manager.record_use_with_fingerprint(&req.license_key, req.fingerprint.as_deref())
+    }) {
         Ok(()) => {
-            let caps = task::block_in_place(|| manager.meter_usage(&req.license_key)).ok();
+            let caps = task::block_in_place(|| {
+                manager.meter_usage_with_fingerprint(&req.license_key, req.fingerprint.as_deref())
+            })
+            .ok();
             Ok(Json(RecordUseResponse {
                 recorded: true,
                 remaining: caps.as_ref().and_then(|c| c.remaining),
@@ -456,6 +471,7 @@ mod tests {
         let req = ValidateKeyRequest {
             profile_id: "missing-profile".to_string(),
             license_key: "XXXX-XXXX".to_string(),
+            fingerprint: None,
         };
 
         let err = match validate_key(State(state), Json(req)).await {
@@ -475,6 +491,7 @@ mod tests {
         let req = CheckAccessRequest {
             profile_id: "missing-profile".to_string(),
             license_key: "XXXX-XXXX".to_string(),
+            fingerprint: None,
         };
 
         let err = match check_access(State(state), Json(req)).await {
@@ -510,6 +527,7 @@ mod tests {
         let req = RecordUseRequest {
             profile_id: "missing-profile".to_string(),
             license_key: "XXXX-XXXX".to_string(),
+            fingerprint: None,
         };
 
         let err = match record_use(State(state), Json(req)).await {
@@ -541,6 +559,7 @@ mod tests {
         let req = ValidateKeyRequest {
             profile_id: profile.to_string(),
             license_key: "".to_string(),
+            fingerprint: None,
         };
 
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");
@@ -583,6 +602,7 @@ mod tests {
         let req = CheckAccessRequest {
             profile_id: profile.to_string(),
             license_key: "LICENSE-TEST-1234".to_string(),
+            fingerprint: None,
         };
 
         let rt = tokio::runtime::Runtime::new().expect("runtime should initialize");

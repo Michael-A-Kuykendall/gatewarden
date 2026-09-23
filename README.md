@@ -93,7 +93,9 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 | Method | Behavior |
 |--------|----------|
 | `validate_key(key)` | Online validation → signature verify → cache |
+| `validate_key_with_fingerprint(key, fingerprint)` | Fingerprint-scoped validation and cache |
 | `check_access(key)` | Prefer cache (if within offline grace) → fallback to online |
+| `check_access_with_fingerprint(key, fingerprint)` | Fingerprint-scoped offline access check |
 
 Both methods verify signatures and entitlements. Use `validate_key` when you want fresh validation; use `check_access` for typical runtime checks where offline grace is acceptable.
 

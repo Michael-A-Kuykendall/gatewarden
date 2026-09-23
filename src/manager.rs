@@ -8,7 +8,7 @@
 //! Local, offline-enforceable usage metering is available behind the `meter`
 //! feature via `LicenseManager::record_use` (see the `0.4.2` release).
 
-use crate::cache::file::{hash_license_key, FileCache};
+use crate::cache::file::{hash_license_key, hash_license_key_with_fingerprint, FileCache};
 use crate::cache::format::CacheRecord;
 use crate::client::http::KeygenClient;
 use crate::clock::{Clock, SystemClock};
@@ -62,6 +62,13 @@ pub struct LicenseManager {
 }
 
 impl LicenseManager {
+    fn cache_key_hash(license_key: &str, fingerprint: Option<&str>) -> String {
+        fingerprint.map_or_else(
+            || hash_license_key(license_key),
+            |fingerprint| hash_license_key_with_fingerprint(license_key, fingerprint),
+        )
+    }
+
     /// Create a new license manager with the given configuration.
     ///
     /// Uses the system clock for time operations.
@@ -128,47 +135,57 @@ impl LicenseManager {
     /// - `UsageLimitExceeded` - Usage cap exceeded
     /// - `CacheExpired` - Offline and cache has expired
     pub fn validate_key(&self, license_key: &str) -> Result<ValidationResult, GatewardenError> {
+        self.validate_key_with_fingerprint(license_key, None)
+    }
+    /// Validate a license key with an optional Keygen machine fingerprint.
+    ///
+    /// When present, the fingerprint scopes both Keygen validation and the
+    /// authenticated offline cache entry to one machine.
+    pub fn validate_key_with_fingerprint(
+        &self,
+        license_key: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<ValidationResult, GatewardenError> {
         if license_key.is_empty() {
             return Err(GatewardenError::MissingLicense);
         }
 
-        let key_hash = hash_license_key(license_key);
+        let key_hash = Self::cache_key_hash(license_key, fingerprint);
 
-        // Try online validation first
-        match self.validate_online(license_key, &key_hash) {
+        match self.validate_online(license_key, &key_hash, fingerprint) {
             Ok(result) => Ok(result),
-            Err(online_error) => {
-                // Try offline fallback
-                self.validate_offline(&key_hash, online_error)
-            }
+            Err(online_error) => self.validate_offline(&key_hash, online_error),
         }
     }
-
     /// Check access for a license without additional validation.
     ///
     /// This uses the cached license state if available.
     /// Use `validate_key` for full validation.
     pub fn check_access(&self, license_key: &str) -> Result<ValidationResult, GatewardenError> {
+        self.check_access_with_fingerprint(license_key, None)
+    }
+    /// Check access using a cached license scoped to an optional machine fingerprint.
+    pub fn check_access_with_fingerprint(
+        &self,
+        license_key: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<ValidationResult, GatewardenError> {
         if license_key.is_empty() {
             return Err(GatewardenError::MissingLicense);
         }
 
-        let key_hash = hash_license_key(license_key);
-
-        // Load from cache
+        let key_hash = Self::cache_key_hash(license_key, fingerprint);
         let record = self
             .cache
             .load(&key_hash)?
             .ok_or(GatewardenError::InvalidLicense)?;
 
-        // Verify cache is authentic and within grace
         record.verify(
             &self.config.public_key_hex,
             self.config.offline_grace,
             self.clock.as_ref(),
         )?;
 
-        // Parse cached response and enforce policy
         let state = self.parse_cached_state(&record)?;
         let (caps, selectors_scanned) = self.enforce_policy(&state, "check_access", &key_hash)?;
 
@@ -180,7 +197,6 @@ impl LicenseManager {
             selectors_scanned,
         })
     }
-
     /// Parse a cached record's body into a normalized license state.
     fn parse_cached_state(&self, record: &CacheRecord) -> Result<LicenseState, GatewardenError> {
         let response: KeygenValidateResponse = serde_json::from_str(record.body())
@@ -254,16 +270,18 @@ impl LicenseManager {
         &self,
         license_key: &str,
         key_hash: &str,
+        fingerprint: Option<&str>,
     ) -> Result<ValidationResult, GatewardenError> {
-        // Call Keygen with required entitlements in scope
-        // This ensures Keygen echoes back the entitlements in the response
+        // Call Keygen with required entitlements and optional machine scope.
         let entitlements: Vec<&str> = self
             .config
             .required_entitlements
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let response = self.client.validate_key(license_key, &entitlements)?;
+        let response =
+            self.client
+                .validate_key_with_fingerprint(license_key, &entitlements, fingerprint)?;
 
         // Verify signature, digest, and freshness
         verify_response(&response, &self.config.public_key_hex, self.clock.as_ref())?;
@@ -361,7 +379,16 @@ impl LicenseManager {
     /// for the key, the use is still recorded but not capped locally.
     #[cfg(feature = "meter")]
     pub fn record_use(&self, license_key: &str) -> Result<(), GatewardenError> {
-        let key_hash = hash_license_key(license_key);
+        self.record_use_with_fingerprint(license_key, None)
+    }
+    /// Record one local use with an optional machine-scoped cache key.
+    #[cfg(feature = "meter")]
+    pub fn record_use_with_fingerprint(
+        &self,
+        license_key: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<(), GatewardenError> {
+        let key_hash = Self::cache_key_hash(license_key, fingerprint);
 
         // Pre-check against the cached Keygen cap before incrementing.
         if let Some(record) = self.cache.load(&key_hash)? {
@@ -392,7 +419,6 @@ impl LicenseManager {
             .ok_or_else(|| GatewardenError::MeterIO("usage meter unavailable".to_string()))?;
         meter.increment(&key_hash, self.clock.as_ref())
     }
-
     /// Current usage caps for `license_key`, folding in the locally-metered count.
     ///
     /// This is the read-side counterpart to [`LicenseManager::record_use`]: it
@@ -401,7 +427,16 @@ impl LicenseManager {
     /// Used by the bridge to surface `remaining` after a successful `record_use`.
     #[cfg(feature = "meter")]
     pub fn meter_usage(&self, license_key: &str) -> Result<UsageCaps, GatewardenError> {
-        let key_hash = hash_license_key(license_key);
+        self.meter_usage_with_fingerprint(license_key, None)
+    }
+    /// Read usage caps using an optional machine-scoped cache key.
+    #[cfg(feature = "meter")]
+    pub fn meter_usage_with_fingerprint(
+        &self,
+        license_key: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<UsageCaps, GatewardenError> {
+        let key_hash = Self::cache_key_hash(license_key, fingerprint);
         let record = self
             .cache
             .load(&key_hash)?
@@ -415,7 +450,6 @@ impl LicenseManager {
         let local = self.meter_monthly_count(&key_hash);
         Ok(UsageCaps::with_local(&state, local))
     }
-
     /// Seed an authenticated cache entry for `license_key` (test/integration only).
     ///
     /// The record is signed with the crate's well-known Ed25519 test seed, so it
@@ -478,7 +512,15 @@ mod tests {
         let result = manager.check_access("");
         assert!(matches!(result, Err(GatewardenError::MissingLicense)));
     }
+    #[test]
+    fn fingerprinted_cache_keys_are_scoped() {
+        let unscoped = LicenseManager::cache_key_hash("license", None);
+        let machine_a = LicenseManager::cache_key_hash("license", Some("machine-a"));
+        let machine_b = LicenseManager::cache_key_hash("license", Some("machine-b"));
 
+        assert_ne!(unscoped, machine_a);
+        assert_ne!(machine_a, machine_b);
+    }
     #[test]
     fn test_config_accessor() {
         let config = test_config();

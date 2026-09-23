@@ -138,6 +138,20 @@ pub fn hash_license_key(license_key: &str) -> String {
     hex::encode(hash)
 }
 
+/// Compute a cache hash scoped to one machine fingerprint.
+///
+/// Fingerprint-scoped validation must not reuse an authenticated cache record
+/// for a different machine. The separator keeps `(key, fingerprint)` pairs
+/// unambiguous without storing either value in the cache filename.
+pub fn hash_license_key_with_fingerprint(license_key: &str, fingerprint: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(license_key.as_bytes());
+    hasher.update([0]);
+    hasher.update(fingerprint.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,6 +191,18 @@ mod tests {
         assert_eq!(loaded.body, record.body);
         assert_eq!(loaded.date, record.date);
         assert_eq!(loaded.signature, record.signature);
+    }
+
+    #[test]
+    fn fingerprint_scopes_cache_hashes() {
+        assert_ne!(
+            hash_license_key_with_fingerprint("license", "machine-a"),
+            hash_license_key_with_fingerprint("license", "machine-b")
+        );
+        assert_ne!(
+            hash_license_key("license"),
+            hash_license_key_with_fingerprint("license", "machine-a")
+        );
     }
 
     #[test]
