@@ -11,6 +11,7 @@
 
 use crate::crypto::pipeline::verify_response_for_method;
 use crate::manager::LicenseManager;
+use crate::protocol::models::{KeygenValidateResponse, LicenseState};
 use crate::GatewardenError;
 use reqwest::Method;
 
@@ -132,6 +133,28 @@ pub fn parse_increment(status: u16, body: &[u8]) -> Result<Usage, GatewardenErro
 }
 
 impl LicenseManager {
+    /// Validate a key online and return the verified license state as Keygen reports
+    /// it, valid or not (e.g. `NO_MACHINE` before activation), without applying
+    /// policy or caching. Use it to learn the license id and policy before acting.
+    pub fn inspect_key(
+        &self,
+        license_key: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<LicenseState, GatewardenError> {
+        let response = self
+            .client
+            .validate_key_with_fingerprint(license_key, &[], fingerprint)?;
+        verify_response_for_method(
+            &response,
+            "post",
+            &self.config.public_key_hex,
+            self.clock.as_ref(),
+        )?;
+        let parsed: KeygenValidateResponse = serde_json::from_str(response.body_str()?)
+            .map_err(|e| GatewardenError::ProtocolError(format!("Parse error: {}", e)))?;
+        LicenseState::from_keygen_response(&parsed)
+    }
+
     /// Activate this machine (by fingerprint) for a license, as the license itself.
     /// A fingerprint that is already activated returns `already_active`.
     pub fn activate_machine(

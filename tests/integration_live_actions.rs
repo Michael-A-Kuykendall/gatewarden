@@ -52,6 +52,16 @@ fn live_activate_increment_deactivate() {
             .unwrap()
             .as_nanos()
     );
+    let before = manager
+        .inspect_key(&key, Some(&fingerprint))
+        .expect("inspect");
+    assert_eq!(before.license_id.as_deref(), Some(license_id.as_str()));
+    assert!(
+        !before.valid,
+        "an unactivated fingerprint is not valid yet: {}",
+        before.code
+    );
+    assert!(before.policy_id.is_some());
     let first = manager
         .activate_machine(
             &key,
