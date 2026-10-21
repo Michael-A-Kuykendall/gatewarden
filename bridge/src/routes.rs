@@ -28,6 +28,7 @@ fn gatewarden_error_code(e: &GatewardenError) -> &'static str {
         GatewardenError::InvalidLicense => "INVALID_LICENSE",
         GatewardenError::EntitlementMissing { .. } => "ENTITLEMENT_MISSING",
         GatewardenError::UsageLimitExceeded => "USAGE_LIMIT_EXCEEDED",
+        GatewardenError::MachineLimitExceeded => "MACHINE_LIMIT_EXCEEDED",
         GatewardenError::SignatureInvalid => "SIGNATURE_INVALID",
         GatewardenError::SignatureMissing => "SIGNATURE_MISSING",
         GatewardenError::DigestMismatch => "DIGEST_MISMATCH",

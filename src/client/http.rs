@@ -206,6 +206,42 @@ impl KeygenClient {
         KeygenResponse::from_response(response, path, self.host.clone())
     }
 
+    /// Send a request authenticated as the license itself (`Authorization: License <key>`),
+    /// for actions a license may take on its own records: activating a machine,
+    /// incrementing usage, deleting its machine. `path` is relative to the account,
+    /// e.g. `/machines`. The response is returned unverified; callers verify it with
+    /// [`crate::crypto::pipeline::verify_response_for_method`].
+    pub fn license_request(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        license_key: &str,
+        body: Option<&serde_json::Value>,
+    ) -> Result<KeygenResponse, GatewardenError> {
+        let path = format!("/v1/accounts/{}{}", self.account_id, path);
+        let url = format!("https://{}{}", self.host, path);
+        let mut request = self
+            .client
+            .request(method, &url)
+            .header(USER_AGENT, &self.user_agent)
+            .header(HOST, &self.host)
+            .header("Accept", "application/vnd.api+json")
+            .header("Authorization", format!("License {}", license_key));
+        if let Some(body) = body {
+            let body_bytes = serde_json::to_vec(body).map_err(|e| {
+                GatewardenError::ProtocolError(format!("Failed to serialize: {}", e))
+            })?;
+            request = request
+                .header(CONTENT_TYPE, "application/vnd.api+json")
+                .header("Digest", format_digest_header(&body_bytes))
+                .body(body_bytes);
+        }
+        let response = request
+            .send()
+            .map_err(|e| GatewardenError::KeygenTransport(format!("Request failed: {}", e)))?;
+        KeygenResponse::from_response(response, path, self.host.clone())
+    }
+
     /// Get the configured host.
     pub fn host(&self) -> &str {
         &self.host

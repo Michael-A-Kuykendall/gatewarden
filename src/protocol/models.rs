@@ -47,6 +47,9 @@ pub struct KeygenLicenseData {
     pub data_type: String,
     /// License attributes.
     pub attributes: KeygenLicenseAttributes,
+    /// License relationships (policy, product, ...), kept raw.
+    #[serde(default)]
+    pub relationships: Option<serde_json::Value>,
 }
 
 /// License attributes.
@@ -90,6 +93,14 @@ pub struct LicenseState {
 
     /// Optional detail message.
     pub detail: Option<String>,
+
+    /// Keygen license id (needed for license actions such as machine activation).
+    #[serde(default)]
+    pub license_id: Option<String>,
+
+    /// Keygen policy id the license belongs to.
+    #[serde(default)]
+    pub policy_id: Option<String>,
 }
 
 impl LicenseState {
@@ -126,6 +137,14 @@ impl LicenseState {
             current_uses,
             code: response.meta.code.clone(),
             detail: response.meta.detail.clone(),
+            license_id: response.data.as_ref().map(|d| d.id.clone()),
+            policy_id: response
+                .data
+                .as_ref()
+                .and_then(|d| d.relationships.as_ref())
+                .and_then(|r| r.pointer("/policy/data/id"))
+                .and_then(|v| v.as_str())
+                .map(String::from),
         })
     }
 }

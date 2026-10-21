@@ -99,6 +99,10 @@ pub enum GatewardenError {
     #[error("Usage limit exceeded")]
     UsageLimitExceeded,
 
+    /// The license already has as many machines as its policy allows.
+    #[error("Machine limit exceeded")]
+    MachineLimitExceeded,
+
     /// Usage meter I/O failed (only present with the `meter` feature).
     #[cfg(feature = "meter")]
     #[error("Usage meter I/O error: {0}")]

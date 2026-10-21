@@ -104,6 +104,8 @@ mod tests {
             current_uses: Some(42),
             code: "VALID".to_string(),
             detail: Some("License is valid".to_string()),
+            license_id: None,
+            policy_id: None,
         }
     }
 
@@ -116,6 +118,8 @@ mod tests {
             current_uses: None,
             code: "EXPIRED".to_string(),
             detail: Some("License has expired".to_string()),
+            license_id: None,
+            policy_id: None,
         }
     }
 
@@ -128,6 +132,8 @@ mod tests {
             current_uses: None,
             code: "VALID".to_string(),
             detail: None,
+            license_id: None,
+            policy_id: None,
         }
     }
 
@@ -245,6 +251,8 @@ mod tests {
             current_uses: None,
             code: "VALID".to_string(),
             detail: None,
+            license_id: None,
+            policy_id: None,
         };
         let input = GatewardenEvalInput::from_validated_response(state, true, None);
         let expected = vec![

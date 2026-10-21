@@ -41,6 +41,17 @@ pub fn verify_response(
     public_key_hex: &str,
     clock: &dyn Clock,
 ) -> Result<(), GatewardenError> {
+    verify_response_for_method(response, "post", public_key_hex, clock)
+}
+
+/// Verify a Keygen response to a request made with `method` (`get`, `post`,
+/// `delete`, ...): the signing string's request target carries the method.
+pub fn verify_response_for_method(
+    response: &KeygenResponse,
+    method: &str,
+    public_key_hex: &str,
+    clock: &dyn Clock,
+) -> Result<(), GatewardenError> {
     // 1. Fail-closed on missing required headers
     let signature_header = response
         .signature
@@ -63,7 +74,7 @@ pub fn verify_response(
 
     // 5. Build signing string
     let signing_string = build_signing_string(
-        "post",
+        method,
         &response.request_path,
         &response.host,
         date_header,
@@ -138,6 +149,29 @@ mod tests {
 
         let result = verify_response(&response, TEST_VERIFY_KEY_HEX, &clock);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_signature_is_bound_to_the_request_method() {
+        // License actions (machine activation, usage increment) verify with their own
+        // method; a response signed for one method must not verify for another.
+        let clock = MockClock::new(Utc.with_ymd_and_hms(2025, 1, 15, 12, 0, 0).unwrap());
+        let response = create_test_response(
+            r#"{"data":{"id":"l-1","attributes":{"uses":3}}}"#,
+            "Wed, 15 Jan 2025 12:00:00 GMT",
+            "api.keygen.sh",
+            "/v1/accounts/test/licenses/l-1/actions/increment-usage",
+        );
+        assert!(verify_response_for_method(&response, "post", TEST_VERIFY_KEY_HEX, &clock).is_ok());
+        assert!(matches!(
+            verify_response_for_method(&response, "delete", TEST_VERIFY_KEY_HEX, &clock),
+            Err(GatewardenError::SignatureInvalid)
+        ));
+        let mut tampered = response;
+        tampered.body = br#"{"data":{"id":"l-1","attributes":{"uses":0}}}"#.to_vec();
+        assert!(
+            verify_response_for_method(&tampered, "post", TEST_VERIFY_KEY_HEX, &clock).is_err()
+        );
     }
 
     #[test]

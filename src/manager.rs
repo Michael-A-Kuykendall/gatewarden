@@ -51,9 +51,9 @@ pub struct ValidationResult {
 /// This is the primary public API. Create one instance per application
 /// and reuse it for all license checks.
 pub struct LicenseManager {
-    config: GatewardenConfig,
-    clock: Arc<dyn Clock>,
-    client: KeygenClient,
+    pub(crate) config: GatewardenConfig,
+    pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) client: KeygenClient,
     cache: FileCache,
     fse_plan: CompiledPlan,
     /// Local, offline-enforceable usage meter (only with the `meter` feature).

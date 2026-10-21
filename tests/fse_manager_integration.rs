@@ -39,6 +39,8 @@ fn valid_license_state() -> LicenseState {
         current_uses: Some(42),
         code: "VALID".to_string(),
         detail: Some("License is valid".to_string()),
+        license_id: None,
+        policy_id: None,
     }
 }
 
@@ -51,6 +53,8 @@ fn invalid_license_state() -> LicenseState {
         current_uses: None,
         code: "EXPIRED".to_string(),
         detail: Some("License has expired".to_string()),
+        license_id: None,
+        policy_id: None,
     }
 }
 
@@ -63,6 +67,8 @@ fn expired_license_state() -> LicenseState {
         current_uses: None,
         code: "EXPIRED".to_string(),
         detail: Some("License expired on 2020-06-01".to_string()),
+        license_id: None,
+        policy_id: None,
     }
 }
 
@@ -75,6 +81,8 @@ fn missing_entitlement_state() -> LicenseState {
         current_uses: None,
         code: "VALID".to_string(),
         detail: Some("License is valid".to_string()),
+        license_id: None,
+        policy_id: None,
     }
 }
 
@@ -246,6 +254,8 @@ fn test_fse_multiple_entitlements() {
         current_uses: None,
         code: "VALID".to_string(),
         detail: None,
+        license_id: None,
+        policy_id: None,
     };
 
     let input = GatewardenEvalInput::from_validated_response(state, true, None);
@@ -287,6 +297,8 @@ fn test_fse_multiple_entitlements_one_missing() {
         current_uses: None,
         code: "VALID".to_string(),
         detail: None,
+        license_id: None,
+        policy_id: None,
     };
 
     let input = GatewardenEvalInput::from_validated_response(state, true, None);
@@ -346,6 +358,8 @@ fn test_fse_selectors_scanned_constant_with_shared_selectors() {
         current_uses: None,
         code: "VALID".to_string(),
         detail: None,
+        license_id: None,
+        policy_id: None,
     };
 
     let input = GatewardenEvalInput::from_validated_response(state, true, None);
