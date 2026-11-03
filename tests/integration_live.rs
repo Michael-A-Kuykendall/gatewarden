@@ -4,7 +4,7 @@
 //!
 //! To run:
 //! ```bash
-//! source ~/.config/shimmy/secrets.env
+//! source ../chat-chronicle/scripts/load-service-secrets.sh
 //! cargo test --test integration_live -- --ignored
 //! ```
 //!
@@ -13,9 +13,27 @@
 //! - GATEWARDEN_TEST_PUBLIC_KEY_HEX: Ed25519 verify key (64 hex chars)
 //! - GATEWARDEN_TEST_LICENSE_KEY: A valid license key to validate
 //! - GATEWARDEN_TEST_ENTITLEMENT: An entitlement code on that license (optional)
+//! - GATEWARDEN_TEST_FINGERPRINT: Fixture machine fingerprint (optional,
+//!   defaults to the activated fixture fingerprint below)
+//!
+//! Fixture lifecycle: see `docs/LIVE_KEYGEN_FIXTURE.md`. The fixture license's
+//! policy requires fingerprint scope, so the valid-flow checks below validate
+//! with the fixture fingerprint. Run `scripts/keygen-fixture-preflight.sh`
+//! to check fixture state without exposing credential values.
 
 use gatewarden::{GatewardenConfig, GatewardenError, LicenseManager};
 use std::time::Duration;
+
+/// Activated fixture machine fingerprint for the live Keygen tests.
+///
+/// Override with `GATEWARDEN_TEST_FINGERPRINT`. The fingerprint is a machine
+/// identifier on a dedicated test license, not a credential.
+const DEFAULT_FIXTURE_FINGERPRINT: &str = "gatewarden-live-fixture-v1";
+
+fn load_fingerprint() -> String {
+    std::env::var("GATEWARDEN_TEST_FINGERPRINT")
+        .unwrap_or_else(|_| DEFAULT_FIXTURE_FINGERPRINT.to_string())
+}
 
 fn load_config() -> Option<(GatewardenConfig, String)> {
     let account_id = std::env::var("GATEWARDEN_TEST_ACCOUNT_ID").ok()?;
@@ -54,9 +72,10 @@ fn load_config() -> Option<(GatewardenConfig, String)> {
 fn live_validate_key_succeeds_with_valid_license() {
     let (config, license_key) = load_config()
         .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+    let fingerprint = load_fingerprint();
 
     let manager = LicenseManager::new(config).expect("LicenseManager should initialize");
-    let result = manager.validate_key(&license_key);
+    let result = manager.validate_key_with_fingerprint(&license_key, Some(&fingerprint));
 
     match &result {
         Ok(r) => {
@@ -108,10 +127,11 @@ fn live_fse_selectors_scanned_metric() {
     // and has a reasonable value (not zero, not excessive).
     let (config, license_key) = load_config()
         .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+    let fingerprint = load_fingerprint();
 
     let manager = LicenseManager::new(config).expect("LicenseManager should initialize");
     let result = manager
-        .validate_key(&license_key)
+        .validate_key_with_fingerprint(&license_key, Some(&fingerprint))
         .expect("validate_key should succeed");
 
     assert!(result.valid, "License should be valid");
@@ -150,6 +170,7 @@ fn live_fse_o1_behavior_with_multiple_entitlements() {
     // Config 1: Single entitlement (creates 1 rule checking Entitlements selector)
     let (mut config1, license_key) = load_config()
         .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+    let fingerprint = load_fingerprint();
     config1.required_entitlements = vec![base_entitlement.clone()];
     config1.cache_namespace = format!(
         "gatewarden-live-test-o1-single-{}",
@@ -161,7 +182,7 @@ fn live_fse_o1_behavior_with_multiple_entitlements() {
 
     let manager1 = LicenseManager::new(config1).expect("LicenseManager should initialize");
     let result1 = manager1
-        .validate_key(&license_key)
+        .validate_key_with_fingerprint(&license_key, Some(&fingerprint))
         .expect("validate_key should succeed");
 
     // Config 2: Multiple entitlement rules (3 rules, all checking same Entitlements selector)
@@ -181,7 +202,7 @@ fn live_fse_o1_behavior_with_multiple_entitlements() {
 
     let manager2 = LicenseManager::new(config2).expect("LicenseManager should initialize");
     let result2 = manager2
-        .validate_key(&license_key)
+        .validate_key_with_fingerprint(&license_key, Some(&fingerprint))
         .expect("validate_key should succeed with duplicate entitlements");
 
     // FSE O(1) invariant: adding rules that share selectors doesn't increase scan count
@@ -219,19 +240,20 @@ fn live_fse_o1_behavior_with_multiple_entitlements() {
 fn live_check_access_after_validate_uses_cache() {
     let (config, license_key) = load_config()
         .expect("Set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX, GATEWARDEN_TEST_LICENSE_KEY");
+    let fingerprint = load_fingerprint();
 
     let manager = LicenseManager::new(config).expect("LicenseManager should initialize");
 
     // First: online validation (populates cache)
     let result1 = manager
-        .validate_key(&license_key)
+        .validate_key_with_fingerprint(&license_key, Some(&fingerprint))
         .expect("First validate_key should succeed");
     assert!(result1.valid, "License should be valid");
     assert!(!result1.from_cache, "First call should hit Keygen");
 
     // Second: check_access should use cache
     let result2 = manager
-        .check_access(&license_key)
+        .check_access_with_fingerprint(&license_key, Some(&fingerprint))
         .expect("check_access should succeed after validate_key");
     assert!(result2.valid, "Cached result should still be valid");
     assert!(result2.from_cache, "check_access should use the cache");
