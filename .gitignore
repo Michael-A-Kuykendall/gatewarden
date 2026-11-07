@@ -1,5 +1,10 @@
 /target
 
+# Local agent tools and state
+/.agents/
+/.opencode/
+/.openstate
+
 # Local env / secrets
 .env
 .env.*

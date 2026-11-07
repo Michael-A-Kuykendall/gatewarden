@@ -1,3 +1,8 @@
+# Local Dolt runtime and backups
+/embeddeddolt/
+/backup/
+/.auto-import-issues.jsonl
+
 # SQLite databases
 *.db
 *.db?*

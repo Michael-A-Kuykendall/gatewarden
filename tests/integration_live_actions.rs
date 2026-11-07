@@ -33,10 +33,9 @@ fn setup() -> Option<(LicenseManager, String)> {
 #[test]
 #[ignore]
 fn live_activate_increment_deactivate() {
-    let Some((manager, key)) = setup() else {
-        eprintln!("skipping: GATEWARDEN_TEST_* not set");
-        return;
-    };
+    let (manager, key) = setup().expect(
+        "set GATEWARDEN_TEST_ACCOUNT_ID, GATEWARDEN_TEST_PUBLIC_KEY_HEX and GATEWARDEN_TEST_ACTION_LICENSE_KEY and ensure the manager initializes",
+    );
     // validate-key without a fingerprint scope still returns the license record.
     let license_id = match manager.validate_key(&key) {
         Ok(result) => result.state.license_id,

@@ -74,6 +74,14 @@ If the slot is occupied by a stale machine, delete that machine first
 (list with `GET .../licenses/${LICENSE_ID}/machines` using the admin token),
 then re-run the preflight to confirm `VALID`.
 
+## Credentials on the maintainer's machine
+
+The local secrets file is `~/.config/shimmy/secrets.env`. Load it with
+`source ../chat-chronicle/scripts/load-service-secrets.sh`; never copy secret
+values into the repository, terminal output, issue tracker, or logs. The loader
+supplies the validation fixture variables and the Keygen admin token. Run the
+preflight before the suite and stop if it is not VALID.
+
 ## Running the suite
 
 ```bash
@@ -84,3 +92,27 @@ cargo test --test integration_live -- --ignored
 Expected: seven passing tests, zero failures. The bogus-key rejection and
 wrong-public-key checks guard the failure modes: a stub that returns success
 without a Keygen round-trip must fail the bogus-key check in the same run.
+
+## Live actions
+
+The actions test needs a separate license with LICENSE or MIXED authentication,
+a free machine slot, fingerprint scope required, and no `maxUses` ceiling. It
+increments usage and creates then removes a machine. The regular validation
+fixture has only one occupied slot, so do not use it for this test.
+
+To create and delete a temporary test license under an explicitly chosen suitable
+policy, load the secrets as above and run:
+
+```bash
+GATEWARDEN_TEST_ACTION_POLICY_ID=<suitable-policy-id> python3 scripts/test-live-actions.py
+```
+
+On the maintainer's account, `policy_enterprise` is suitable; its policy ID is
+`21aba131-02e2-4e05-a76d-dd0530c04ee0`. The helper uses the admin token only
+in memory, passes the new license key to the test environment, and deletes the
+temporary license even if the test fails. If deletion fails, remove the reported
+license ID manually. A forcibly terminated process may also require cleanup.
+For an existing dedicated actions fixture, set `GATEWARDEN_TEST_ACTION_LICENSE_KEY`
+and, if unscoped validation cannot resolve it, `GATEWARDEN_TEST_ACTION_LICENSE_ID`,
+then run `cargo test --test integration_live_actions -- --ignored`. Missing
+credentials cause a failure, not a passing skip.

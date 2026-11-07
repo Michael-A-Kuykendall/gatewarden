@@ -2,6 +2,13 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
+## Live Keygen testing
+
+Load local credentials and run the validation and temporary-license actions tests
+as documented in `docs/LIVE_KEYGEN_FIXTURE.md`. Never print or commit secrets.
+The regular validation fixture has one occupied slot; use the separate temporary
+license for state-changing actions tests.
+
 ## Quick Reference
 
 ```bash
