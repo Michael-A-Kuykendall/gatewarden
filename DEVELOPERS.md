@@ -5,7 +5,10 @@ for the open-source participation model.
 
 ## Prerequisites
 
-- Rust 1.70+ (install via [rustup](https://rustup.rs/))
+- Rust 1.88 or newer (install via [rustup](https://rustup.rs/)). The checked-in
+  lockfile and workspace were tested on Rust 1.88 for x86-64 Linux. The
+  manifests' Rust 1.70 declaration is outdated; other platforms or dependency
+  resolutions may need newer Rust.
 - Git
 
 ## Building

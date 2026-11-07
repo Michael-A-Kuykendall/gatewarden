@@ -65,6 +65,13 @@ license-state inspection, and fingerprint-scoped validation. See the
 [Changelog](CHANGELOG.md) for every published version and the
 [Roadmap](ROADMAP.md) for released and planned work.
 
+## Rust toolchain
+
+The 0.5.0 manifest declares Rust 1.70, but that minimum is incorrect for its
+current dependencies. The workspace and its checked-in lockfile are tested on
+Rust 1.88 for x86-64 Linux. Dependency updates or other platforms may require a
+newer toolchain. See the [quickstart](docs/QUICKSTART.md) for details.
+
 ## Quickstart
 
 ```rust

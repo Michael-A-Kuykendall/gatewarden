@@ -4,9 +4,10 @@
 
 - A [Keygen.sh](https://keygen.sh) account with at least one license created
 - Your Ed25519 public key (64 hex chars) from Keygen Dashboard → Settings
-- A current stable Rust toolchain to build the library or bridge. Although the
-  0.5.0 manifest declares Rust 1.70, its current dependencies include crates
-  requiring Rust 1.85; the declared minimum has not been validated.
+- Rust 1.88 or newer for the current checked-in dependency set; the workspace
+  was tested with Rust 1.88 on x86-64 Linux. The 0.5.0 manifest's Rust 1.70
+  declaration is incorrect for these dependencies. Other dependency resolutions
+  or platforms may require a newer toolchain.
 
 ---
 
@@ -39,7 +40,7 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 
     let manager = LicenseManager::new(config)?;
 
-    // Online validation — hits Keygen, verifies signature, caches result
+    // Try Keygen first, then fall back to a verified cache on error
     let result = manager.validate_key("USER-LICENSE-KEY")?;
 
     if result.valid {
