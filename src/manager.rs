@@ -51,9 +51,9 @@ pub struct ValidationResult {
 /// This is the primary public API. Create one instance per application
 /// and reuse it for all license checks.
 pub struct LicenseManager {
-    config: GatewardenConfig,
-    clock: Arc<dyn Clock>,
-    client: KeygenClient,
+    pub(crate) config: GatewardenConfig,
+    pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) client: KeygenClient,
     cache: FileCache,
     fse_plan: CompiledPlan,
     /// Local, offline-enforceable usage meter (only with the `meter` feature).
@@ -526,6 +526,51 @@ mod tests {
         let config = test_config();
         let manager = LicenseManager::new(config).unwrap();
         assert_eq!(manager.config().app_name, "test-app");
+    }
+
+    /// Offline regression for the scope-required boundary: a cached
+    /// `FINGERPRINT_SCOPE_REQUIRED` state (ACTIVE license, policy needs
+    /// fingerprint scope) must deny access with `InvalidLicense` — the same
+    /// error the live valid-flow checks saw before the fixture was scoped.
+    #[test]
+    #[cfg(feature = "meter")]
+    fn scope_required_state_denies_access_offline() {
+        use crate::clock::MockClock;
+        use chrono::{TimeZone, Utc};
+        use std::sync::Arc;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut config = test_config();
+        config.cache_namespace = format!("gatewarden-test-scope-req-{}", suffix);
+
+        let clock = Arc::new(MockClock::new(
+            Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap(),
+        ));
+        let manager = LicenseManager::new_with_clock(config, clock).unwrap();
+
+        let key = "TEST-LICENSE-KEY-SCOPE-REQUIRED-4242";
+        let body = r#"{"meta":{"valid":false,"code":"FINGERPRINT_SCOPE_REQUIRED","detail":"fingerprint scope is required"},"data":{"id":"lic-1","type":"licenses","attributes":{"name":"Test License","maxUses":null,"uses":0}}}"#;
+        manager
+            .seed_cache_for_test(
+                key,
+                body,
+                "Wed, 15 Jan 2025 12:00:00 GMT",
+                "api.keygen.sh",
+                "/v1/accounts/test/licenses/lic-1/actions/validate",
+            )
+            .expect("seed signed cache");
+
+        assert!(
+            matches!(
+                manager.check_access(key),
+                Err(GatewardenError::InvalidLicense)
+            ),
+            "scope-required state must deny access with InvalidLicense"
+        );
     }
 
     /// End-to-end exercise of the offline usage meter: seed a signed cache,

@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core validation library
-gatewarden = { path = "..", version = "0.4.2", features = ["meter"] }
+gatewarden = { path = "..", version = "0.5.0", features = ["meter"] }
 
 # HTTP server
 axum = { version = "0.8", features = ["json"] }

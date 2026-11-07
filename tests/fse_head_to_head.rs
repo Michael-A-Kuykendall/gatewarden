@@ -95,6 +95,8 @@ fn legacy_allow(s: &Scenario) -> bool {
             "INVALID".into()
         },
         detail: None,
+        license_id: None,
+        policy_id: None,
     };
 
     check_access_with_usage(&state, &["CHAT_CHRONICLE_PRO"], 0).is_ok()

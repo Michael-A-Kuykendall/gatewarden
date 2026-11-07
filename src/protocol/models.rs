@@ -47,6 +47,9 @@ pub struct KeygenLicenseData {
     pub data_type: String,
     /// License attributes.
     pub attributes: KeygenLicenseAttributes,
+    /// License relationships (policy, product, ...), kept raw.
+    #[serde(default)]
+    pub relationships: Option<serde_json::Value>,
 }
 
 /// License attributes.
@@ -90,6 +93,14 @@ pub struct LicenseState {
 
     /// Optional detail message.
     pub detail: Option<String>,
+
+    /// Keygen license id (needed for license actions such as machine activation).
+    #[serde(default)]
+    pub license_id: Option<String>,
+
+    /// Keygen policy id the license belongs to.
+    #[serde(default)]
+    pub policy_id: Option<String>,
 }
 
 impl LicenseState {
@@ -126,6 +137,14 @@ impl LicenseState {
             current_uses,
             code: response.meta.code.clone(),
             detail: response.meta.detail.clone(),
+            license_id: response.data.as_ref().map(|d| d.id.clone()),
+            policy_id: response
+                .data
+                .as_ref()
+                .and_then(|d| d.relationships.as_ref())
+                .and_then(|r| r.pointer("/policy/data/id"))
+                .and_then(|v| v.as_str())
+                .map(String::from),
         })
     }
 }
@@ -172,6 +191,30 @@ mod tests {
         "meta": {
             "valid": true,
             "code": "VALID"
+        }
+    }"#;
+
+    /// Shape Keygen returns when the license is ACTIVE but the policy requires
+    /// fingerprint scope and the request carried none.
+    const SCOPE_REQUIRED_RESPONSE: &str = r#"{
+        "meta": {
+            "valid": false,
+            "code": "FINGERPRINT_SCOPE_REQUIRED",
+            "detail": "fingerprint scope is required"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses",
+            "attributes": {
+                "name": "Test License",
+                "maxUses": null,
+                "uses": 0
+            },
+            "relationships": {
+                "policy": {
+                    "data": { "type": "policies", "id": "test-policy-id" }
+                }
+            }
         }
     }"#;
 
@@ -237,5 +280,25 @@ mod tests {
         assert!(!state.valid);
         assert_eq!(state.code, "EXPIRED");
         assert_eq!(state.detail, Some("License has expired".to_string()));
+    }
+
+    #[test]
+    fn test_fingerprint_scope_required_state() {
+        // Regression: the live fixture policy requires fingerprint scope, so an
+        // unscoped validation returns this code with an ACTIVE license
+        // attached. The state must preserve the code (and the license/policy
+        // ids) so callers can distinguish "policy needs scope" from a dead
+        // license.
+        let response = parse(SCOPE_REQUIRED_RESPONSE);
+        let state = LicenseState::from_keygen_response(&response).unwrap();
+
+        assert!(!state.valid);
+        assert_eq!(state.code, "FINGERPRINT_SCOPE_REQUIRED");
+        assert_eq!(
+            state.detail,
+            Some("fingerprint scope is required".to_string())
+        );
+        assert_eq!(state.license_id.as_deref(), Some("test-license-id"));
+        assert_eq!(state.policy_id.as_deref(), Some("test-policy-id"));
     }
 }

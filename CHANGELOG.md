@@ -5,6 +5,26 @@ All notable changes to Gatewarden will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-21
+
+### Added
+
+- **License actions** (`gatewarden::actions`): `LicenseManager::activate_machine`,
+  `increment_usage` and `deactivate_machine`, authenticated as the license itself
+  (`Authorization: License <key>`). Activation and usage responses pass the same
+  Ed25519 signature, digest and freshness checks as validation. A taken fingerprint
+  returns `Activation { already_active: true }`; a full machine slot is
+  `GatewardenError::MachineLimitExceeded`; exceeding `maxUses` is
+  `GatewardenError::UsageLimitExceeded`.
+- `crypto::pipeline::verify_response_for_method` (the signing string's request
+  target carries the HTTP method).
+- `LicenseState::license_id` and `LicenseState::policy_id`.
+
+### Changed
+
+- `GatewardenError` gains `MachineLimitExceeded`; `LicenseState` gains two fields
+  (breaking for code that builds `LicenseState` literals).
+
 ## [0.4.2] - 2026-07-26
 
 ### Added

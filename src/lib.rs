@@ -88,11 +88,15 @@ pub mod policy;
 // Manager (main public API)
 pub mod manager;
 
+// License actions: machine activation, usage increments
+pub mod actions;
+
 // Usage metering (behind the `meter` feature)
 #[cfg(feature = "meter")]
 pub mod meter;
 
 // Re-exports for public API
+pub use actions::{Activation, Usage};
 pub use clock::{Clock, SystemClock};
 pub use config::GatewardenConfig;
 pub use errors::GatewardenError;

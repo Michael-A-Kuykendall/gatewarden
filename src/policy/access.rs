@@ -144,6 +144,8 @@ mod tests {
             current_uses: None,
             code: "VALID".to_string(),
             detail: None,
+            license_id: None,
+            policy_id: None,
         }
     }
 
@@ -156,6 +158,8 @@ mod tests {
             current_uses: None,
             code: "EXPIRED".to_string(),
             detail: None,
+            license_id: None,
+            policy_id: None,
         }
     }
 
