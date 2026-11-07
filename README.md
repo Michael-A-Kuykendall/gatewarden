@@ -6,7 +6,7 @@
 <p align="center">
     <a href="https://crates.io/crates/gatewarden"><img src="https://img.shields.io/crates/v/gatewarden.svg" alt="Crates.io"></a> <a href="https://translifeline.org/"><img src="https://pride-badges.pony.workers.dev/static/v1?label=trans%20rights&stripeWidth=6&stripeColors=5BCEFA,F5A9B8,FFFFFF,F5A9B8,5BCEFA" alt="trans rights"></a> <a href="https://www.thetrevorproject.org/"><img src="https://pride-badges.pony.workers.dev/static/v1?label=lgbtq%2B%20friendly&stripeWidth=6&stripeColors=E40303,FF8C00,FFED00,008026,24408E,732982" alt="lgbtq+ friendly"></a>
     <a href="https://docs.rs/gatewarden"><img src="https://docs.rs/gatewarden/badge.svg" alt="Docs.rs"></a>
-    <a href="https://github.com/Michael-A-Kuykendall/gatewarden/actions"><img src="https://github.com/Michael-A-Kuykendall/gatewarden/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/Michael-A-Kuykendall/gatewarden/actions/workflows/publish.yml"><img src="https://github.com/Michael-A-Kuykendall/gatewarden/actions/workflows/publish.yml/badge.svg" alt="Publish"></a>
     <a href="https://github.com/Michael-A-Kuykendall/gatewarden/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/gatewarden.svg" alt="License"></a>
 </p>
 
@@ -58,6 +58,13 @@ Gatewarden does **not** attempt to:
 
 If an attacker has full control of the machine, they can bypass any client-side check. Gatewarden raises the bar from "intercept HTTP" to "reverse engineer binary."
 
+## Releases
+
+The latest library release is **0.5.0**, adding license actions, verified
+license-state inspection, and fingerprint-scoped validation. See the
+[Changelog](CHANGELOG.md) for every published version and the
+[Roadmap](ROADMAP.md) for released and planned work.
+
 ## Quickstart
 
 ```rust
@@ -78,7 +85,7 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 
     let manager = LicenseManager::new(config)?;
     
-    // validate_key: always hits Keygen, verifies signature, updates cache
+    // validate_key tries Keygen, then falls back to a verified cache when available
     let result = manager.validate_key("LICENSE-KEY")?;
 
     if result.valid {
@@ -92,12 +99,15 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 
 | Method | Behavior |
 |--------|----------|
-| `validate_key(key)` | Online validation → signature verify → cache |
+| `validate_key(key)` | Try online validation, then fall back to verified cache on error |
 | `validate_key_with_fingerprint(key, fingerprint)` | Fingerprint-scoped validation and cache |
-| `check_access(key)` | Prefer cache (if within offline grace) → fallback to online |
+| `check_access(key)` | Check the verified cache within offline grace; no online fallback |
 | `check_access_with_fingerprint(key, fingerprint)` | Fingerprint-scoped offline access check |
+| `inspect_key(key, fingerprint)` | Verify and return online license state without enforcing access policy |
+| `activate_machine(...)` / `deactivate_machine(...)` | Activate or remove a Keygen machine |
+| `increment_usage(key, license_id, by)` | Increment usage on Keygen |
 
-Both methods verify signatures and entitlements. Use `validate_key` when you want fresh validation; use `check_access` for typical runtime checks where offline grace is acceptable.
+These methods verify signatures and entitlements. Use `validate_key` to try online validation; check `from_cache` if a fresh response is required. `check_access` reads only the cache and returns an error when no valid cached record exists.
 
 ## Error Handling
 
@@ -141,7 +151,7 @@ Get your public key from Keygen Dashboard → Settings → Public Key.
 
 ## Offline Grace
 
-When online validation fails due to network issues, Gatewarden falls back to the authenticated cache:
+When online validation fails, Gatewarden attempts to fall back to the authenticated cache:
 
 1. Cache records include the original Keygen signature
 2. Records are re-verified on every load (tamper-resistant)

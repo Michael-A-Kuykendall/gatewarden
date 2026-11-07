@@ -75,13 +75,14 @@ curl http://127.0.0.1:4760/v1/health \
 ```
 
 ```json
-{"status": "ok", "version": "0.2.1", "profiles": ["myapp-pro"]}
+{"status": "ok", "version": "0.4.2", "profiles": ["myapp-pro"]}
 ```
 
 ### `POST /v1/validate-key`
 
-Always validates against Keygen online, verifies the Ed25519 signature, and caches
-the result. Falls back to cache only on network failure.
+Attempts validation against Keygen, verifies the Ed25519 signature, and caches
+the result. If online validation returns an error, it attempts a verified cache
+fallback. Check `fromCache` if a fresh online response is required.
 
 ```bash
 curl -X POST http://127.0.0.1:4760/v1/validate-key \
@@ -114,8 +115,8 @@ curl -X POST http://127.0.0.1:4760/v1/validate-key \
 
 ### `POST /v1/check-access`
 
-Cache-first access check. Uses the locally cached validation if it's within the
-offline grace period. Does NOT call Keygen if a valid cache entry exists.
+Checks a locally cached validation within the offline grace period. This endpoint
+does not call Keygen; it returns an invalid result if no suitable cache exists.
 
 ```bash
 curl -X POST http://127.0.0.1:4760/v1/check-access \
@@ -125,6 +126,14 @@ curl -X POST http://127.0.0.1:4760/v1/check-access \
 ```
 
 Same response shape as `validate-key`.
+
+### `POST /v1/record-use`
+
+Records one locally metered use for a profile and license. The optional
+`fingerprint` scopes the meter and cached license; a known cap breach returns
+HTTP 429 with `USAGE_LIMIT_EXCEEDED`. The bridge builds Gatewarden with the
+`meter` feature. See [the bridge protocol](../docs/bridge-protocol.md) for the
+request and response fields.
 
 ### `GET /.well-known/openapi.json`
 
@@ -219,7 +228,7 @@ curl -s -X POST http://127.0.0.1:4760/v1/validate-key \
 
 - **Loopback only** — bind to `127.0.0.1` by default. Never expose to the internet.
 - **Bearer token** — always configure a strong (20+ char) token for production.
-- **Fail-closed** — security errors (signature invalid, digest mismatch) return HTTP 502, not 200.
+- **Fail-closed** — when no verified cache can be used, validation security errors return HTTP 502; cached-access signature or tampering errors return HTTP 500.
 - **License keys are never logged or cached in plaintext** — cache entries are keyed by SHA-256 hash.
 - **Config file permissions** — `bridge.toml` contains your bearer token. Set `chmod 600 bridge.toml` on Unix.
 

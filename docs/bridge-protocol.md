@@ -13,14 +13,14 @@ Define an idiomatic, discoverable interface for consuming Gatewarden from non-Ru
 Why this choice:
 
 - OpenAPI is the most widely adopted API contract for tooling, SDK generation, and documentation.
-- A localhost sidecar keeps private keys and cryptographic policy in one hardened Rust process.
+- A localhost sidecar centralizes signature verification and policy enforcement; the configured Keygen verification key is public.
 - Connector libraries in TypeScript, JavaScript, Python, etc. can remain thin wrappers.
 
 ## Contract Artifacts
 
 - OpenAPI spec: spec/gatewarden-bridge.openapi.yaml
 - Well-known discovery endpoint (recommended): /.well-known/openapi.json
-- Docs endpoint (recommended): /docs
+- A separate `/docs` UI is not currently served by the bridge.
 
 ## Operations
 

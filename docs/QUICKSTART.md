@@ -4,7 +4,9 @@
 
 - A [Keygen.sh](https://keygen.sh) account with at least one license created
 - Your Ed25519 public key (64 hex chars) from Keygen Dashboard → Settings
-- Rust 1.70+ (for the library) or a pre-built bridge binary (for non-Rust runtimes)
+- A current stable Rust toolchain to build the library or bridge. Although the
+  0.5.0 manifest declares Rust 1.70, its current dependencies include crates
+  requiring Rust 1.85; the declared minimum has not been validated.
 
 ---
 
@@ -14,7 +16,7 @@
 
 ```toml
 [dependencies]
-gatewarden = "0.2"
+gatewarden = "0.5"
 ```
 
 ### 2. Validate a License
@@ -66,7 +68,7 @@ Enforce per-key usage caps **locally and offline** — without relying on
 Keygen's server-side `maxUses`. Enable the `meter` Cargo feature:
 
 ```toml
-gatewarden = { version = "0.4.2", features = ["meter"] }
+gatewarden = { version = "0.5", features = ["meter"] }
 ```
 
 ```rust

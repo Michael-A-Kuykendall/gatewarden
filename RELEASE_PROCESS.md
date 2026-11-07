@@ -1,93 +1,36 @@
 # Release Process
 
-## Version Scheme
+Gatewarden follows [Semantic Versioning](https://semver.org/). During the 0.x
+series, a minor version can include breaking changes; document migration notes
+in the changelog. The library and bridge have separate package versions.
 
-Gatewarden follows [Semantic Versioning](https://semver.org/):
+## Release checklist
 
-- **MAJOR** — Breaking API changes (field type changes, removed methods)
-- **MINOR** — New features, new public API surface (backward compatible)
-- **PATCH** — Bug fixes, documentation, internal refactors (no API changes)
+1. Update the library version and its bridge dependency in the manifests. Bump
+   the bridge package version when appropriate; do not assume it always matches
+   the library. Update the changelog and roadmap using the actual release date.
+2. Run the release checks from a clean checkout:
 
-## Cutting a Release
+   ```bash
+   cargo fmt --all --check
+   cargo clippy --workspace --all-features -- -D warnings
+   cargo test --workspace --all-features
+   cargo test --workspace --no-default-features
+   cargo package --list
+   cargo publish --dry-run
+   ```
 
-### 1. Pre-flight Checks
+   Inspect the package list for required source files and unintended local or
+   development files. Run the live Keygen tests described in
+   [LOCAL_TESTING.md](LOCAL_TESTING.md) with dedicated fixtures.
+3. Commit the release, create an annotated `vX.Y.Z` tag, and push the branch
+   and that tag. A matching tag starts
+   [the publish workflow](.github/workflows/publish.yml), which publishes the
+   library to crates.io and creates a GitHub Release. Avoid a concurrent manual
+   upload while the workflow is running.
+4. Verify the workflow, the published version on
+   [crates.io](https://crates.io/crates/gatewarden), and documentation on
+   [docs.rs](https://docs.rs/gatewarden). Record any follow-up work.
 
-```bash
-# All tests pass
-cargo test --workspace
-
-# No warnings
-cargo build --workspace
-
-# Clippy clean
-cargo clippy --workspace -- -D warnings
-
-# Docs generate cleanly
-cargo doc --no-deps
-
-# Format is consistent
-cargo fmt --check
-```
-
-### 2. Version Bump
-
-Update version strings in:
-- `Cargo.toml` (root crate)
-- `bridge/Cargo.toml` (package version AND gatewarden dep version)
-
-### 3. Update CHANGELOG.md
-
-Add a new section at the top following [Keep a Changelog](https://keepachangelog.com/):
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- ...
-
-### Fixed
-- ...
-
-### Changed
-- ...
-```
-
-### 4. Commit and Tag
-
-```bash
-git add -A
-git commit -m "chore: release vX.Y.Z"
-git tag vX.Y.Z
-git push origin master --tags
-```
-
-### 5. Publish
-
-The `publish.yml` CI workflow triggers on tag push and runs:
-- `cargo publish` for the `gatewarden` crate
-- Bridge binary builds are uploaded as GitHub Release assets (manual for now)
-
-### 6. Post-Release
-
-- Verify crate appears on [crates.io/crates/gatewarden](https://crates.io/crates/gatewarden)
-- Verify docs appear on [docs.rs/gatewarden](https://docs.rs/gatewarden)
-- Update ROADMAP.md to move completed items
-
-## Hotfix Process
-
-For critical fixes to an already-released version:
-
-1. Branch from the release tag: `git checkout -b hotfix/vX.Y.Z vX.Y.Z`
-2. Apply the fix
-3. Bump patch version
-4. Follow the normal release flow from step 3 onward
-
-## Bridge Binary Releases
-
-Bridge binaries are cross-compiled for:
-- `x86_64-unknown-linux-gnu`
-- `x86_64-pc-windows-msvc`
-- `x86_64-apple-darwin`
-- `aarch64-apple-darwin`
-
-These are attached to the GitHub Release as assets.
+The publish workflow does not build or attach bridge binaries. Build the bridge
+from the repository unless separately provided release assets are available.

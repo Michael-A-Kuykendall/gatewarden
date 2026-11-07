@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `crypto::pipeline::verify_response_for_method` (the signing string's request
   target carries the HTTP method).
 - `LicenseState::license_id` and `LicenseState::policy_id`.
+- `LicenseManager::inspect_key` verifies a live Keygen response and returns the
+  license state without enforcing access policy or populating the access cache.
+- Fingerprint-scoped validation, cache access, metering, and bridge requests
+  isolate machine-scoped records; the live fixture tests exercise this scope.
 
 ### Changed
 
@@ -183,7 +187,20 @@ update imports to use the new paths in `src/policy/fse/`.
 
 ---
 
-## [0.2.0] - 2026-06-03
+## [0.2.1] - 2026-06-04 (Git revision only)
+
+The `v0.2.1` tag points to commit `62de9ae`; the library manifest at that
+commit remains at 0.1.2 and no 0.2.1 crate was published. The tag was created
+on 2026-06-05. Its changes after the 0.2.0 development revision include:
+
+### Fixed
+
+- Run blocking bridge initialization and validation work away from Tokio worker
+  threads, avoiding runtime-drop panics during live requests.
+- Return the documented validation response shape for license failures handled
+  with HTTP 200.
+
+## [0.2.0] - 2026-06-03 (development revision; not published to crates.io)
 
 ### Breaking Changes
 

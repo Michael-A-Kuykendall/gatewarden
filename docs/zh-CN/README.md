@@ -23,12 +23,12 @@
 
 🚀 **如果 Gatewarden 对你有帮助，欢迎 [赞助](https://github.com/sponsors/Michael-A-Kuykendall)——所有支持都将用于让它永久免费。**
 
-- **$5/月**：咖啡英雄 ☕——永久感谢 + 名字登上 [SPONSORS.md](SPONSORS.md)
+- **$5/月**：咖啡英雄 ☕——永久感谢 + 名字登上 [SPONSORS.md](../../SPONSORS.md)
 - **$25/月**：开发者支持者 🐛——优先处理缺陷 + 影响路线图
 - **$100/月**：企业支持者 🏢——README 中展示 Logo + 发布说明致谢
 - **$500/月**：企业合作伙伴 🚀——显著 Logo + 月度办公时间 + 路线图输入
 
-[**🎯 成为赞助者**](https://github.com/sponsors/Michael-A-Kuykendall) | 看看我们出色的 [赞助者](SPONSORS.md) 🙏
+[**🎯 成为赞助者**](https://github.com/sponsors/Michael-A-Kuykendall) | 看看我们出色的 [赞助者](../../SPONSORS.md) 🙏
 
 ---
 
@@ -76,7 +76,7 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 
     let manager = LicenseManager::new(config)?;
 
-    // validate_key：始终访问 Keygen，校验签名，并更新缓存
+    // validate_key：先尝试在线校验，失败时可回退到已验证的缓存
     let result = manager.validate_key("LICENSE-KEY")?;
 
     if result.valid {
@@ -90,10 +90,10 @@ fn main() -> Result<(), gatewarden::GatewardenError> {
 
 | 方法 | 行为 |
 |--------|----------|
-| `validate_key(key)` | 在线校验 → 签名验证 → 缓存 |
-| `check_access(key)` | 优先使用缓存（在离线宽限期内）→ 回退到在线校验 |
+| `validate_key(key)` | 尝试在线校验；失败时回退到已验证的缓存 |
+| `check_access(key)` | 只检查离线宽限期内已验证的缓存，不回退到在线校验 |
 
-两种方法都会校验签名和权限。当你需要全新校验时使用 `validate_key`；当可以接受离线宽限期、用于常规运行时检查时使用 `check_access`。
+两种方法都会校验签名和权限。需要在线结果时使用 `validate_key` 并检查 `from_cache`；`check_access` 只读取缓存。
 
 ## 错误处理
 
@@ -137,7 +137,7 @@ match manager.validate_key(&license_key) {
 
 ## 离线宽限期
 
-当在线校验因网络问题失败时，Gatewarden 会回退到经过认证的缓存：
+当在线校验失败时，Gatewarden 会尝试回退到经过认证的缓存：
 
 1. 缓存记录包含原始的 Keygen 签名
 2. 记录每次加载都会重新校验（防篡改）
@@ -189,28 +189,28 @@ let caps = manager.meter_usage("LICENSE-KEY")?;
 - 上限强制需要已知的上限：许可证必须至少被校验/缓存过一次（在线或通过离线缓存），以便获知 `maxUses`。若未知上限，`record_use` 仍会本地记录但不做上限限制。
 - 通过桥接服务，`POST /v1/record-use` 记录一次使用，并在超出上限时返回 `429`（`USAGE_LIMIT_EXCEEDED`）；`POST /v1/record-use` 与校验响应都会展示用量上限（`usage`：`maxUses`、`currentUses`、`remaining`、`localUses`）。
 
-未启用 `meter` 时，行为保持不变——该 API 是增量且非破坏性的。详见 [docs/QUICKSTART.md](docs/QUICKSTART.md) 与 [CHANGELOG.md](CHANGELOG.md) 中的 `[0.4.2]` 条目。
+未启用 `meter` 时，行为保持不变——该 API 是增量且非破坏性的。详见 [docs/QUICKSTART.md](../QUICKSTART.md) 与 [CHANGELOG.md](../../CHANGELOG.md) 中的 `[0.4.2]` 条目。
 
 ## 示例
 
-完整的带错误处理的示例见 [`examples/basic_validation.rs`](examples/basic_validation.rs)。
+完整的带错误处理的示例见 [`examples/basic_validation.rs`](../../examples/basic_validation.rs)。
 
 ## 本地测试
 
-针对真实 Keygen API 的集成测试见 [LOCAL_TESTING.md](LOCAL_TESTING.md)。
+针对真实 Keygen API 的集成测试见 [LOCAL_TESTING.md](../../LOCAL_TESTING.md)。
 
 ## 桥接 API（连接器接口）
 
 对于非 Rust 运行时（TypeScript、JavaScript、Python），Gatewarden 可以通过本地旁路桥接服务暴露。
 
-- 协议概览：[docs/bridge-protocol.md](docs/bridge-protocol.md)
-- OpenAPI 契约：[spec/gatewarden-bridge.openapi.yaml](spec/gatewarden-bridge.openapi.yaml)
+- 协议概览：[docs/bridge-protocol.md](../../docs/bridge-protocol.md)
+- OpenAPI 契约：[spec/gatewarden-bridge.openapi.yaml](../../spec/gatewarden-bridge.openapi.yaml)
 
 这样 Gatewarden 作为唯一的密码学可信源，同时支持生成客户端和标准 API 发现。
 
 ## 贡献
 
-见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
 **开源，但不接受主动贡献：** 本项目不接受主动发起的 Pull Request。请先开 Issue 讨论拟议的变更。
 
@@ -218,7 +218,7 @@ let caps = manager.meter_usage("LICENSE-KEY")?;
 
 **带 FSE 专利限制的 MIT 许可证**
 
-Gatewarden 基于 MIT 许可证发布（见 [LICENSE](LICENSE)）。但 `src/policy/fse/` 中的融合语义执行（FSE）实现受到额外的专利许可限制。
+Gatewarden 基于 MIT 许可证发布（见 [LICENSE](../../LICENSE)）。但 `src/policy/fse/` 中的融合语义执行（FSE）实现受到额外的专利许可限制。
 
 **FSE 专利状态：** 由 Michael A. Kuykendall 申请的专利 pending（待审）。保留所有权利。
 
@@ -236,9 +236,9 @@ Gatewarden 基于 MIT 许可证发布（见 [LICENSE](LICENSE)）。但 `src/pol
 - 为其他用例重新实现 FSE 算法
 - 使用 FSE 创建竞争产品
 
-**FSE 许可咨询：** 见 [FSE_PATENT_LICENSE.md](FSE_PATENT_LICENSE.md) 或联系 michaelallenkuykendall@gmail.com
+**FSE 许可咨询：** 见 [FSE_PATENT_LICENSE.md](../../FSE_PATENT_LICENSE.md) 或联系 michaelallenkuykendall@gmail.com
 
 ## 许可证
 
-MIT——见 [LICENSE](LICENSE)。
-FSE 专利限制——见 [FSE_PATENT_LICENSE.md](FSE_PATENT_LICENSE.md)。
+MIT——见 [LICENSE](../../LICENSE)。
+FSE 专利限制——见 [FSE_PATENT_LICENSE.md](../../FSE_PATENT_LICENSE.md)。

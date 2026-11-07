@@ -1,62 +1,51 @@
 # Roadmap
 
-## v0.2.1 (Released)
+The latest published library release is **0.5.0**. See the
+[Changelog](CHANGELOG.md) for release dates, breaking changes, and the full
+history. The bridge has its own package version, currently 0.4.2.
 
-Surgical cleanup and hardening. No behavior changes to validation pipeline.
+## Released
 
-- [x] FSE engine moved into main crate (`src/policy/fse/`)
-- [x] `fse-gatewarden` workspace crate removed
-- [x] `#[non_exhaustive]` on FSE public enums
-- [x] Patent notice in source and docs
-- [x] Rate limiter background prune task (bridge)
-- [x] Bearer token strength warning at startup (bridge)
-- [x] Stale `html_root_url` removed
-- [x] Version bump to 0.2.1
-- [x] Bridge README with full user guide
-- [x] Documentation hub (QUICKSTART, ARCHITECTURE, CONFIGURATION)
+### 0.5.0
 
----
+- License-authenticated machine activation, usage increment, and machine removal.
+- Verified license-state inspection without access-policy enforcement.
+- Fingerprint-scoped validation and cache entries, including bridge requests.
 
-## v0.3.0 (Current — Released)
+### 0.4.2
 
-Wire FSE into the live validation pipeline. The FSE engine is now the
-authoritative policy decision point.
+- Revived the per-license offline usage meter behind the `meter` feature.
+- Exposed remaining usage and the bridge's `/v1/record-use` endpoint.
 
-- [x] Event-driven runtime API (`RuntimeState` with `apply`/`finalize`/`shouldTerminate`)
-- [x] Expanded predicates: `MinU64`, `Exists`, `InSet(Vec<String>)`
-- [x] Namespaced rule IDs (e.g., `crypto.signature_verified`, `entitlements.required_N`)
-- [x] Gatewarden-specific selectors: `StateCode`, `StateValid`, `Entitlements`, `ExpiresAt`, `UsageRemaining`
-- [x] `GatewardenEvalInput` implementation for license response mapping
-- [x] FSE wired into `LicenseManager::validate_online()` — authoritative policy evaluation
-- [x] Bridge startup logging shows FSE plan stats per profile
-- [x] `compile_default_plan()` generates rules from `GatewardenConfig`
-- [x] Compliance test suite (`fse_compliance.rs`) covering FSE core properties
-- [x] Property-based tests expanded (proptest) for FSE invariants and new predicates
-- [x] Integration tests confirm FSE decisions with live Keygen API
-- [x] Documentation updated (ARCHITECTURE, DEVELOPERS, CHANGELOG, ROADMAP)
+### 0.4.1
 
----
+- Fixed bridge rate limiting to use the TCP peer instead of spoofable forwarded headers.
+- Updated cryptographic dependencies and clarified bridge configuration errors.
 
-## v0.4.0 (Next)
+### 0.4.0
 
-Focus: Runtime flexibility, client libraries, and operational tooling.
+- Shelved the previously unwired offline meter; it was revived and integrated in 0.4.2.
+- Consolidated policy enforcement across online, offline, and cached access paths.
 
-- [ ] `/v1/check-access` uses FSE plan for cache-read decision path (deferred from v0.3.0)
-- [ ] Async validation path (non-blocking for Tokio runtimes)
-- [ ] TypeScript client package generated from OpenAPI spec
-- [ ] Python client package
-- [ ] Graceful shutdown with in-flight request drain (bridge)
-- [ ] Hot-reload bridge config without restart
-- [ ] Trusted proxy configuration (X-Forwarded-For header trust policy)
-- [ ] Prometheus metrics endpoint for the bridge
-- [ ] Docker image published to GHCR
-- [ ] Custom FSE rule loading from config (beyond defaults)
+### 0.3.0
 
----
+- Integrated the FSE policy engine into license validation and added runtime,
+  predicate, compliance, and property tests.
 
-## Long-term
+Earlier published versions and the Git-only 0.2.x development revisions are
+recorded in the [Changelog](CHANGELOG.md).
 
-- [ ] Event-driven FSE streaming provider (JSON tokenizer path, per patent FIG. 7)
-- [ ] Rule priority ordering and short-circuit optimization
-- [ ] WebAssembly build of the FSE engine for browser-side policy evaluation
-- [ ] Gatewarden Cloud — hosted bridge as a service (no local binary needed)
+## Future work
+
+These are directions, not commitments to a release or schedule.
+
+- [ ] Async validation path for Tokio applications.
+- [ ] TypeScript and Python client packages.
+- [ ] Bridge graceful shutdown and config reload.
+- [ ] Trusted-proxy configuration with an explicit forwarded-header trust policy;
+      the current bridge uses the TCP peer address.
+- [ ] Bridge Prometheus metrics and a published container image.
+- [ ] Custom FSE rule loading from configuration.
+- [ ] Event-driven FSE streaming provider.
+- [ ] Rule priority and short-circuit optimization.
+- [ ] WebAssembly build of the FSE engine.
